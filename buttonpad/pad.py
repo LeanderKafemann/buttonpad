@@ -40,15 +40,18 @@ class Button:
     def _handle_enter(self, _): self.on_enter and self.on_enter(self)
     def _handle_exit(self, _): self.on_exit and self.on_exit(self)
 
-@dataclass
 class TextField:
-    label: str
-    widget: tk.Entry
+    def undo(self): self.widget.edit_undo()
+    def redo(self): self.widget.edit_redo()
+    def __init__(self, label: str, widget: tk.Text, frame: tk.Frame):
+        self.label = label
+        self.widget = widget
+        self.frame = frame
 
     @property
-    def text(self) -> str: return self.widget.get()
+    def text(self): return self.widget.get("1.0", "end-1c")
     @text.setter
-    def text(self, value: str): self.widget.delete(0, tk.END); self.widget.insert(0, value)
+    def text(self, val): self.widget.delete("1.0", "end"); self.widget.insert("1.0", val)
 
     @property
     def bg(self): return self.widget.cget("bg")
@@ -64,6 +67,11 @@ class TextField:
     def font(self): return self.widget.cget("font")
     @font.setter
     def font(self, val): self.widget.configure(font=val)
+
+    @property
+    def wrap(self): return self.widget.cget("wrap")
+    @wrap.setter
+    def wrap(self, val): self.widget.configure(wrap=val)
 
 def _parse_labels(label_text: Optional[str]) -> LabelMatrix:
     default = """1,2,3\n4,5,6\n7,8,9\n*,0,#"""
@@ -130,7 +138,6 @@ class ButtonPad:
         self.root.geometry(f"{total_w}x{total_h}")
 
     def run(self): self.root.mainloop()
-
     def __getitem__(self, rc: Coord): return self._owner_for_cell[rc]
 
     def _compute_spans(self, labels: LabelMatrix):
@@ -163,15 +170,31 @@ class ButtonPad:
             prs, pcs = 2 * rs - 1, 2 * cs - 1
 
             if label.startswith("_"):
-                e = tk.Entry(
-                    self.grid_frame,
+                outer = tk.Frame(self.grid_frame)
+                txt = tk.Text(
+                    outer,
+                    wrap="word",
                     bg=self.field_bg,
                     fg=self.field_fg,
-                    insertwidth=2,                # make cursor visible
-                    insertbackground=self.field_fg  # cursor color (same as text color)
+                    height=1,
+                    undo=True,
+                    autoseparators=True,
+                    insertwidth=2,
+                    insertbackground=self.field_fg
                 )
-                e.grid(row=pr, column=pc, rowspan=prs, columnspan=pcs, sticky="nsew")
-                field = TextField(label=label[1:], widget=e)
+
+                vbar = tk.Scrollbar(outer, orient="vertical", command=txt.yview)
+                hbar = tk.Scrollbar(outer, orient="horizontal", command=txt.xview)
+                txt.configure(yscrollcommand=lambda *a: self._scroll_vis(vbar, a),
+                              xscrollcommand=lambda *a: self._scroll_vis(hbar, a))
+                txt.grid(row=0, column=0, sticky="nsew")
+                vbar.grid(row=0, column=1, sticky="ns")
+                hbar.grid(row=1, column=0, sticky="ew")
+                outer.grid_rowconfigure(0, weight=1)
+                outer.grid_columnconfigure(0, weight=1)
+                outer.grid(row=pr, column=pc, rowspan=prs, columnspan=pcs, sticky="nsew")
+
+                field = TextField(label=label[1:], widget=txt, frame=outer)
                 self.fields.append(field)
                 for rr in range(r, r + rs):
                     for cc in range(c, c + cs):
@@ -185,3 +208,11 @@ class ButtonPad:
                 for rr in range(r, r + rs):
                     for cc in range(c, c + cs):
                         self._owner_for_cell[(rr, cc)] = btn
+
+    def _scroll_vis(self, scrollbar, args):
+        first, last = float(args[0]), float(args[1])
+        if first <= 0.0 and last >= 1.0:
+            scrollbar.grid_remove()
+        else:
+            scrollbar.grid()
+
