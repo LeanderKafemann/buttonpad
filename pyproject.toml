@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ButtonPad"
+version = "0.1.0"
+description = "A simple Tkinter-based grid of resizable buttons with configurable spans and callbacks."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name="Your Name", email="you@example.com"}]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: User Interfaces",
+]
+dependencies = []
