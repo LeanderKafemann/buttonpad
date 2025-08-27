@@ -1,30 +1,18 @@
 # ButtonPad
 
-ButtonPad is a tkinter-based grid of buttons and multiline text fields using only the Python standard library.
+`ButtonPad` is a simple Python package that creates a GUI window consisting of a
+grid of buttons, labels, or text boxes using only the Python standard library
+(`tkinter`). The layout is specified using a string that resembles a CSV format,
+where commas separate columns and newlines separate rows.
 
-## Text Fields
+Cells in the layout string may represent:
+- A **button**: any normal word (e.g. `A`, `Click`, `7`)
+- A **label**: a cell that begins **and ends** with a matching `'` or `"` (e.g. `"Hello"`)
+- An **editable text box**: a cell that begins **and ends** with `_` (e.g. `_Notes_`)
+- Blank / empty cells result in an empty label
 
-Any label beginning with `_` becomes a **scrollable, multiline text field**.  
-Fields can span cells like buttons.
+Adjacent duplicate labels in the layout will merge into a larger button (like
+row/column spans in HTML tables).
 
-```python
-labels = """_Notes, _Notes, 3
-_Notes, _Notes, 6
-7, 8, 9
-*, 0, #"""
-```
-
-## Access
-
-- `pad.buttons` → list of `Button` objects
-- `pad.fields` → list of `TextField` objects
-
-Each `TextField` supports:
-- `.text` (get/set)
-- `.fg`, `.bg`
-- `.font` (tuple)
-- `.wrap` (property: "word", "char", or "none")
-
-## License
-
-MIT
+If `auto_func=True`, the package automatically assigns a callback to a button if
+a global function exists whose name matches the button text (spaces removed).
