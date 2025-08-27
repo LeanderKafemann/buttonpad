@@ -27,19 +27,9 @@ class _FontSpec:
 
 
 class _BaseElement:
-    def __init__(self, widget: tk.Widget, text: str = ""):
+    def __init__(self, widget: tk.Widget):
         self.widget = widget
         self._font = _FontSpec()
-
-        # Unified text state across all widget types via StringVar
-        self._textvar = tk.StringVar(value=text)
-        self._text = self._textvar.get()
-        try:
-            # Button, Label, Entry all support 'textvariable'
-            self.widget.configure(textvariable=self._textvar)
-        except tk.TclError:
-            # If a specific widget did not support it, we silently ignore.
-            pass
 
         try:
             self._background_color = widget.cget("bg")
@@ -59,24 +49,6 @@ class _BaseElement:
         # Hover bindings available by default
         self.widget.bind("<Enter>", lambda e: self.on_enter(self.widget) if self.on_enter else None)
         self.widget.bind("<Leave>", lambda e: self.on_exit(self.widget) if self.on_exit else None)
-
-    # ----- text (now centralized) -----
-    @property
-    def text(self) -> str:
-        # Always reflect the live UI value
-        try:
-            self._text = self._textvar.get()
-        except Exception:
-            pass
-        return self._text
-
-    @text.setter
-    def text(self, value: str) -> None:
-        self._text = value
-        try:
-            self._textvar.set(value)
-        except Exception:
-            pass
 
     # ----- colors -----
     @property
@@ -140,16 +112,36 @@ class _BaseElement:
 
 class BPButton(_BaseElement):
     def __init__(self, widget: tk.Button, text: str):
-        super().__init__(widget, text=text)
+        super().__init__(widget)
+        self._text = text
         # default click prints text (ButtonPad calls via dispatcher)
-        self.on_click = lambda w: print(self.text)
+        self.on_click = lambda w: print(self._text)
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._text = value
+        self.widget.configure(text=value)
 
 
 class BPLabel(_BaseElement):
     def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
-        super().__init__(widget, text=text)
+        super().__init__(widget)
+        self._text = text
         self._anchor = anchor
-        widget.configure(anchor=anchor)
+        widget.configure(text=text, anchor=anchor)
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._text = value
+        self.widget.configure(text=value)
 
     @property
     def anchor(self) -> str:
@@ -163,8 +155,17 @@ class BPLabel(_BaseElement):
 
 class BPTextBox(_BaseElement):
     def __init__(self, widget: tk.Entry, text: str):
-        # Entry works with textvariable too; no special handling needed.
-        super().__init__(widget, text=text)
+        super().__init__(widget)
+        self._textvar = tk.StringVar(value=text)
+        widget.configure(textvariable=self._textvar)
+
+    @property
+    def text(self) -> str:
+        return self._textvar.get()
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._textvar.set(value)
 
 
 # ---------- layout & parsing ----------
@@ -196,7 +197,7 @@ class ButtonPad:
     - Column widths / row heights are owned by the GRID:
         * If an int is given, all columns (or rows) get that size.
         * If a sequence of ints is given, its length must match the number of
-          columns (or rows) parsed from the configuration).
+          columns (or rows) parsed from the configuration.
     - `horizontal_gap` / `vertical_gap` are internal spacing between cells.
     - `border` is the outer margin between the grid and the window edges.
     - Global hooks:
@@ -204,10 +205,7 @@ class ButtonPad:
         * on_post_click(element)
       …fired around every click (mouse or keyboard).
     - Keyboard mapping:
-        * map_key("1", 0, 0)  # pressing key "1" triggers cell at (x=0, y=0)
-    - Indexing:
-        * Access elements with Cartesian order: pad[x, y]
-          (x is the column, y is the row).
+        * map_key("1", 0, 0)  # pressing key "1" triggers cell (0,0)
     """
     def __init__(
         self,
@@ -244,7 +242,7 @@ class ButtonPad:
         self._container = tk.Frame(self.root, bg=self.window_bg)
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
-        # storage: now keyed by (x, y) == (col, row)
+        # storage
         self._cell_to_element: Dict[Tuple[int, int], Union[BPButton, BPLabel, BPTextBox]] = {}
         self._widgets: List[tk.Widget] = []
         self._destroyed = False
@@ -253,7 +251,7 @@ class ButtonPad:
         self.on_pre_click: Optional[Callable[[Union[BPButton, BPLabel, BPTextBox]], None]] = None
         self.on_post_click: Optional[Callable[[Union[BPButton, BPLabel, BPTextBox]], None]] = None
 
-        # keyboard mapping: keysym(lowercased) -> (x, y)
+        # keyboard mapping: keysym(lowercased) -> (row, col)
         self._keymap: Dict[str, Tuple[int, int]] = {}
         # Bind globally so focus doesn't matter; handle both forms for robustness
         self.root.bind_all("<Key>", self._on_key)
@@ -294,18 +292,18 @@ class ButtonPad:
 
         self._build_from_config(new_configuration)
 
-    # Public accessor uses Cartesian order: [x, y]
     def __getitem__(self, key: Tuple[int, int]) -> Union[BPButton, BPLabel, BPTextBox]:
         return self._cell_to_element[tuple(key)]
 
-    def map_key(self, key: str, x: int, y: int) -> None:
+    # New: map a keyboard key to a cell (row, col)
+    def map_key(self, key: str, row: int, col: int) -> None:
         """
-        Map a keyboard key to trigger the element at (x, y).
+        Map a keyboard key to trigger the element at (row, col).
         `key` should be a Tk keysym (e.g., "1", "a", "Escape", "space", "Return").
         """
         if not isinstance(key, str) or not key:
             raise ValueError("key must be a non-empty string (Tk keysym).")
-        self._keymap[key.lower()] = (int(x), int(y))
+        self._keymap[key.lower()] = (int(row), int(col))
 
     # ----- internals -----
     def _on_key(self, event) -> None:
@@ -318,10 +316,10 @@ class ButtonPad:
         ks = (ks or "").lower()
         if not ks:
             return
-        pos = self._keymap.get(ks)  # (x, y)
+        pos = self._keymap.get(ks)
         if pos is None:
             return
-        element = self._cell_to_element.get(pos)  # keyed by (x, y)
+        element = self._cell_to_element.get(pos)
         if element is not None:
             self._fire_click(element)
 
@@ -519,10 +517,9 @@ class ButtonPad:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
         # Map every cell in this rectangle to the created element
-        # NOTE: storage uses (x, y) == (column, row)
         for rr in range(r, r + rowspan):
             for cc in range(c, c + colspan):
-                self._cell_to_element[(cc, rr)] = element
+                self._cell_to_element[(rr, cc)] = element
 
         # keep references for later destruction
         self._widgets.append(frame)
