@@ -17,7 +17,9 @@ __all__ = ["ButtonPad", "BPButton", "BPLabel", "BPTextBox"]
 
 # ---------- element wrappers ----------
 
-Callback = Optional[Callable[[tk.Widget], None]]
+# All element callbacks now receive: (element_object, x, y)
+WidgetLike = Union["BPButton", "BPLabel", "BPTextBox"]
+Callback = Optional[Callable[[WidgetLike, int, int], None]]
 
 
 @dataclass
@@ -26,9 +28,15 @@ class _FontSpec:
     size: int = 12
 
 
-class _BaseElement:
+class _BaseWidget:
+    """
+    Base wrapper for a Tk widget. Public attributes:
+      - widget: the underlying tkinter widget
+      - text:   live UI text (StringVar-backed)
+    """
+
     def __init__(self, widget: tk.Widget, text: str = ""):
-        self.widget = widget
+        self.widget = widget  # underlying tkinter widget (public on purpose)
         self._font = _FontSpec()
 
         # Unified text state across all widget types via StringVar
@@ -38,7 +46,7 @@ class _BaseElement:
             # Button, Label, Entry all support 'textvariable'
             self.widget.configure(textvariable=self._textvar)
         except tk.TclError:
-            # If a specific widget did not support it, we silently ignore.
+            # If a specific widget did not support it, silently ignore.
             pass
 
         try:
@@ -51,16 +59,15 @@ class _BaseElement:
         except tk.TclError:
             self._text_color = "black"
 
-        # Unified, opt-in callbacks (ButtonPad dispatches clicks)
+        # Callback hooks (ButtonPad will invoke these)
         self._on_click: Callback = None
         self.on_enter: Callback = None
         self.on_exit: Callback = None
 
-        # Hover bindings available by default
-        self.widget.bind("<Enter>", lambda e: self.on_enter(self.widget) if self.on_enter else None)
-        self.widget.bind("<Leave>", lambda e: self.on_exit(self.widget) if self.on_exit else None)
+        # The ButtonPad sets this to (x, y) when placing the widget:
+        self._pos: Tuple[int, int] = (0, 0)
 
-    # ----- text (now centralized) -----
+    # ----- text (centralized) -----
     @property
     def text(self) -> str:
         # Always reflect the live UI value
@@ -138,14 +145,14 @@ class _BaseElement:
         self._on_click = func
 
 
-class BPButton(_BaseElement):
+class BPButton(_BaseWidget):
     def __init__(self, widget: tk.Button, text: str):
         super().__init__(widget, text=text)
         # default click prints text (ButtonPad calls via dispatcher)
-        self.on_click = lambda w: print(self.text)
+        self.on_click = lambda el, x, y: print(self.text)
 
 
-class BPLabel(_BaseElement):
+class BPLabel(_BaseWidget):
     def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
         super().__init__(widget, text=text)
         self._anchor = anchor
@@ -161,9 +168,8 @@ class BPLabel(_BaseElement):
         self.widget.configure(anchor=value)
 
 
-class BPTextBox(_BaseElement):
+class BPTextBox(_BaseWidget):
     def __init__(self, widget: tk.Entry, text: str):
-        # Entry works with textvariable too; no special handling needed.
         super().__init__(widget, text=text)
 
 
@@ -200,14 +206,18 @@ class ButtonPad:
     - `horizontal_gap` / `vertical_gap` are internal spacing between cells.
     - `border` is the outer margin between the grid and the window edges.
     - Global hooks:
-        * on_pre_click(element)
-        * on_post_click(element)
+        * on_pre_click(widget)
+        * on_post_click(widget)
       …fired around every click (mouse or keyboard).
     - Keyboard mapping:
         * map_key("1", 0, 0)  # pressing key "1" triggers cell at (x=0, y=0)
     - Indexing:
-        * Access elements with Cartesian order: pad[x, y]
+        * Access widgets with Cartesian order: pad[x, y]
           (x is the column, y is the row).
+    - Callback signatures (user-supplied):
+        * widget.on_click   -> (widget, x, y)
+        * widget.on_enter   -> (widget, x, y)
+        * widget.on_exit    -> (widget, x, y)
     """
     def __init__(
         self,
@@ -244,14 +254,15 @@ class ButtonPad:
         self._container = tk.Frame(self.root, bg=self.window_bg)
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
-        # storage: now keyed by (x, y) == (col, row)
-        self._cell_to_element: Dict[Tuple[int, int], Union[BPButton, BPLabel, BPTextBox]] = {}
+        # storage: keyed by (x, y) == (col, row)
+        self._cell_to_widget: Dict[Tuple[int, int], WidgetLike] = {}
         self._widgets: List[tk.Widget] = []
         self._destroyed = False
 
         # global click hooks (user sets these)
-        self.on_pre_click: Optional[Callable[[Union[BPButton, BPLabel, BPTextBox]], None]] = None
-        self.on_post_click: Optional[Callable[[Union[BPButton, BPLabel, BPTextBox]], None]] = None
+        # NOTE: these receive the widget wrapper object
+        self.on_pre_click: Optional[Callable[[WidgetLike], None]] = None
+        self.on_post_click: Optional[Callable[[WidgetLike], None]] = None
 
         # keyboard mapping: keysym(lowercased) -> (x, y)
         self._keymap: Dict[str, Tuple[int, int]] = {}
@@ -290,17 +301,17 @@ class ButtonPad:
             except Exception:
                 pass
         self._widgets.clear()
-        self._cell_to_element.clear()
+        self._cell_to_widget.clear()
 
         self._build_from_config(new_configuration)
 
     # Public accessor uses Cartesian order: [x, y]
-    def __getitem__(self, key: Tuple[int, int]) -> Union[BPButton, BPLabel, BPTextBox]:
-        return self._cell_to_element[tuple(key)]
+    def __getitem__(self, key: Tuple[int, int]) -> WidgetLike:
+        return self._cell_to_widget[tuple(key)]
 
     def map_key(self, key: str, x: int, y: int) -> None:
         """
-        Map a keyboard key to trigger the element at (x, y).
+        Map a keyboard key to trigger the widget at (x, y).
         `key` should be a Tk keysym (e.g., "1", "a", "Escape", "space", "Return").
         """
         if not isinstance(key, str) or not key:
@@ -321,25 +332,42 @@ class ButtonPad:
         pos = self._keymap.get(ks)  # (x, y)
         if pos is None:
             return
-        element = self._cell_to_element.get(pos)  # keyed by (x, y)
-        if element is not None:
-            self._fire_click(element)
+        widget = self._cell_to_widget.get(pos)  # keyed by (x, y)
+        if widget is not None:
+            self._fire_click(widget)
 
-    def _fire_click(self, element: Union[BPButton, BPLabel, BPTextBox]) -> None:
-        """Invoke pre->on_click->post sequence safely."""
+    def _fire_click(self, widget: WidgetLike) -> None:
+        """Invoke pre->on_click->post sequence safely, delivering (widget, x, y)."""
+        x, y = widget._pos  # set during placement
         try:
             if self.on_pre_click:
-                self.on_pre_click(element)
+                self.on_pre_click(widget)
         except Exception:
             pass
         try:
-            if element.on_click:
-                element.on_click(element.widget)
+            if widget.on_click:
+                widget.on_click(widget, x, y)
         except Exception:
             pass
         try:
             if self.on_post_click:
-                self.on_post_click(element)
+                self.on_post_click(widget)
+        except Exception:
+            pass
+
+    def _fire_enter(self, widget: WidgetLike) -> None:
+        x, y = widget._pos
+        try:
+            if widget.on_enter:
+                widget.on_enter(widget, x, y)
+        except Exception:
+            pass
+
+    def _fire_exit(self, widget: WidgetLike) -> None:
+        x, y = widget._pos
+        try:
+            if widget.on_exit:
+                widget.on_exit(widget, x, y)
         except Exception:
             pass
 
@@ -488,9 +516,9 @@ class ButtonPad:
                 highlightthickness=0,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPButton(w, text=spec.text)
-            # Fire ONCE on release via ButtonPad dispatcher
-            w.configure(command=lambda e=element: self._fire_click(e))
+            widget: WidgetLike = BPButton(w, text=spec.text)
+            # Click via ButtonPad dispatcher
+            w.configure(command=lambda e=widget: self._fire_click(e))
 
         elif spec.kind == "label":
             w = tk.Label(
@@ -504,29 +532,35 @@ class ButtonPad:
                 highlightthickness=0,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
-            # Fire ONCE on release via ButtonPad dispatcher
-            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            widget = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
+            # Click dispatch (optional for labels)
+            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
 
         elif spec.kind == "entry":
             w = tk.Entry(frame, relief="sunken", highlightthickness=0)
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPTextBox(w, text=spec.text)
-            # Fire ONCE on release via ButtonPad dispatcher (optional for entries)
-            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            widget = BPTextBox(w, text=spec.text)
+            # Click dispatch (optional for entries)
+            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
 
         else:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
-        # Map every cell in this rectangle to the created element
-        # NOTE: storage uses (x, y) == (column, row)
+        # Record this element's *top-left* position
+        widget._pos = (c, r)
+
+        # Hover enter/exit handlers (bound here because we know the element & coords)
+        w.bind("<Enter>", lambda evt, e=widget: self._fire_enter(e))
+        w.bind("<Leave>", lambda evt, e=widget: self._fire_exit(e))
+
+        # Map every cell in this rectangle to the created element (keyed by x,y)
         for rr in range(r, r + rowspan):
             for cc in range(c, c + colspan):
-                self._cell_to_element[(cc, rr)] = element
+                self._cell_to_widget[(cc, rr)] = widget
 
         # keep references for later destruction
         self._widgets.append(frame)
-        self._widgets.append(element.widget)
+        self._widgets.append(widget.widget)
 
     # ----- config parsing -----
     def _parse_configuration(self, configuration: str) -> List[List[Optional[_Spec]]]:

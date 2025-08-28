@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import ast
 import operator as op
-from buttonpad import ButtonPad  # adjust if your package/module name differs
+from buttonpad import ButtonPad  # adjust import to your package name if needed
 
 # ---------- safe evaluator (supports + - * / // % ** and parentheses) ----------
 _ALLOWED_BINOPS = {
@@ -21,9 +21,7 @@ _ALLOWED_UNARYOPS = {
 }
 
 def _safe_eval(expr: str) -> float | int:
-    """
-    Evaluate a simple arithmetic expression safely.
-    """
+    """Evaluate a simple arithmetic expression safely."""
     def _eval(node):
         if isinstance(node, ast.Expression):
             return _eval(node.body)
@@ -44,7 +42,6 @@ def _safe_eval(expr: str) -> float | int:
         if isinstance(node, ast.Expr):
             return _eval(node.value)
         if isinstance(node, ast.Tuple):
-            # disallow tuple construction like "1,2"
             raise ValueError("Invalid expression.")
         if isinstance(node, ast.Call):
             raise ValueError("Function calls are not allowed.")
@@ -93,7 +90,7 @@ def main() -> None:
     display.font_size = 18
     display.text = ""  # start empty
 
-    # Helper to read/write the expression shown:
+    # Helpers to read/write the expression:
     def get_expr() -> str:
         return display.text
 
@@ -103,15 +100,16 @@ def main() -> None:
     def append(s: str) -> None:
         set_expr(get_expr() + s)
 
-    def do_clear(_w=None):
+    # Handlers now receive (element, x, y)
+    def do_clear(_el, _x, _y):
         set_expr("")
 
-    def do_backspace(_w=None):
+    def do_backspace(_el, _x, _y):
         s = get_expr()
         if s:
             set_expr(s[:-1])
 
-    def do_equals(_w=None):
+    def do_equals(_el, _x, _y):
         s = get_expr().strip()
         if not s:
             return
@@ -129,7 +127,6 @@ def main() -> None:
     }
 
     # Style some buttons and wire up click handlers.
-    # We know our grid coordinates by inspection of LAYOUT:
     # (x, y): x=0..3, y=1..5 for buttons; the top entry is at (0,0).
     labels = [
         # y=1
@@ -147,6 +144,8 @@ def main() -> None:
     for label, x, y in labels:
         el = pad[x, y]
         el.font_size = 16
+
+        # light styling
         if label in ("+", "-", "*", "/", "=", "(", ")", "."):
             el.text_color = "#3a3a3a"
         if label == "=":
@@ -156,13 +155,14 @@ def main() -> None:
         if label == "⌫":
             el.text_color = "#444444"
 
-        # click behavior
+        # click behavior — new signature: (element, x, y)
         if label in SPECIAL:
-            el.on_click = lambda _w, func=SPECIAL[label]: func()
+            handler = SPECIAL[label]
+            el.on_click = handler
         else:
-            el.on_click = lambda _w, s=label: append(s)
+            el.on_click = lambda _el, _x, _y, s=label: append(s)
 
-    # Keyboard mappings
+    # Keyboard mappings (keysym -> label)
     key_to_label = {
         # digits
         "0": "0", "1": "1", "2": "2", "3": "3", "4": "4",
@@ -183,10 +183,6 @@ def main() -> None:
         if label in label_pos:
             x, y = label_pos[label]
             pad.map_key(keysym, x, y)
-
-    # Let Enter also call equals directly even if display has focus
-    # (Already handled by map_key -> click dispatch, but this keeps it explicit)
-    # pad.root.bind("<Return>", lambda e: do_equals())  # optional
 
     pad.run()
 
