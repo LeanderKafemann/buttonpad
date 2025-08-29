@@ -9,17 +9,26 @@ Public classes:
 """
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 import tkinter as tk
+
+# --- Optional macOS support for colorable buttons ---
+IS_MAC = sys.platform == "darwin"
+try:
+    # pip install tkmacosx
+    from tkmacosx import Button as MacButton  # type: ignore
+except Exception:
+    MacButton = None  # fallback to tk.Button when unavailable
 
 __all__ = ["ButtonPad", "BPButton", "BPLabel", "BPTextBox"]
 
 # ---------- element wrappers ----------
 
-# All element callbacks now receive: (element_object, x, y)
-WidgetLike = Union["BPButton", "BPLabel", "BPTextBox"]
-Callback = Optional[Callable[[WidgetLike, int, int], None]]
+# All element callbacks receive: (element_object, x, y)
+ElementLike = Union["BPButton", "BPLabel", "BPTextBox"]
+Callback = Optional[Callable[[ElementLike, int, int], None]]
 
 
 @dataclass
@@ -28,26 +37,30 @@ class _FontSpec:
     size: int = 12
 
 
-class _BaseWidget:
+class _BaseElement:
     """
     Base wrapper for a Tk widget. Public attributes:
       - widget: the underlying tkinter widget
-      - text:   live UI text (StringVar-backed)
+      - text:   live UI text (StringVar-backed when supported)
     """
 
     def __init__(self, widget: tk.Widget, text: str = ""):
-        self.widget = widget  # underlying tkinter widget (public on purpose)
+        self.widget = widget
         self._font = _FontSpec()
 
-        # Unified text state across all widget types via StringVar
+        # Text handling: prefer textvariable when supported; fall back to .configure(text=...)
+        self._text = text
         self._textvar = tk.StringVar(value=text)
-        self._text = self._textvar.get()
+        self._uses_textvariable = False
         try:
-            # Button, Label, Entry all support 'textvariable'
             self.widget.configure(textvariable=self._textvar)
+            self._uses_textvariable = True
         except tk.TclError:
-            # If a specific widget did not support it, silently ignore.
-            pass
+            # Widgets like some macOS buttons may not support textvariable
+            try:
+                self.widget.configure(text=text)
+            except tk.TclError:
+                pass  # some widgets simply don't have text (e.g., certain containers)
 
         try:
             self._background_color = widget.cget("bg")
@@ -64,25 +77,38 @@ class _BaseWidget:
         self.on_enter: Callback = None
         self.on_exit: Callback = None
 
-        # The ButtonPad sets this to (x, y) when placing the widget:
+        # Filled in by ButtonPad when placed
         self._pos: Tuple[int, int] = (0, 0)
 
-    # ----- text (centralized) -----
+    # ----- text (robust across tk / tkmacosx) -----
     @property
     def text(self) -> str:
-        # Always reflect the live UI value
-        try:
-            self._text = self._textvar.get()
-        except Exception:
-            pass
+        if self._uses_textvariable:
+            try:
+                self._text = self._textvar.get()
+            except Exception:
+                pass
+        else:
+            # If we can read the live widget text, do so
+            try:
+                self._text = str(self.widget.cget("text"))
+            except Exception:
+                pass
         return self._text
 
     @text.setter
     def text(self, value: str) -> None:
         self._text = value
+        if self._uses_textvariable:
+            try:
+                self._textvar.set(value)
+                return
+            except Exception:
+                pass
+        # Fallback for widgets without textvariable (e.g., some tkmacosx buttons)
         try:
-            self._textvar.set(value)
-        except Exception:
+            self.widget.configure(text=value)
+        except tk.TclError:
             pass
 
     # ----- colors -----
@@ -145,14 +171,15 @@ class _BaseWidget:
         self._on_click = func
 
 
-class BPButton(_BaseWidget):
-    def __init__(self, widget: tk.Button, text: str):
+
+class BPButton(_BaseElement):
+    def __init__(self, widget: tk.Widget, text: str):
         super().__init__(widget, text=text)
         # default click prints text (ButtonPad calls via dispatcher)
         self.on_click = lambda el, x, y: print(self.text)
 
 
-class BPLabel(_BaseWidget):
+class BPLabel(_BaseElement):
     def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
         super().__init__(widget, text=text)
         self._anchor = anchor
@@ -168,7 +195,7 @@ class BPLabel(_BaseWidget):
         self.widget.configure(anchor=value)
 
 
-class BPTextBox(_BaseWidget):
+class BPTextBox(_BaseElement):
     def __init__(self, widget: tk.Entry, text: str):
         super().__init__(widget, text=text)
 
@@ -206,18 +233,18 @@ class ButtonPad:
     - `horizontal_gap` / `vertical_gap` are internal spacing between cells.
     - `border` is the outer margin between the grid and the window edges.
     - Global hooks:
-        * on_pre_click(widget)
-        * on_post_click(widget)
+        * on_pre_click(element)
+        * on_post_click(element)
       …fired around every click (mouse or keyboard).
     - Keyboard mapping:
         * map_key("1", 0, 0)  # pressing key "1" triggers cell at (x=0, y=0)
     - Indexing:
-        * Access widgets with Cartesian order: pad[x, y]
+        * Access elements with Cartesian order: pad[x, y]
           (x is the column, y is the row).
     - Callback signatures (user-supplied):
-        * widget.on_click   -> (widget, x, y)
-        * widget.on_enter   -> (widget, x, y)
-        * widget.on_exit    -> (widget, x, y)
+        * element.on_click   -> (element, x, y)
+        * element.on_enter   -> (element, x, y)
+        * element.on_exit    -> (element, x, y)
     """
     def __init__(
         self,
@@ -250,19 +277,26 @@ class ButtonPad:
         self.root.resizable(resizable, resizable)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
 
+        # Optional message if macOS without tkmacosx
+        if IS_MAC and MacButton is None:
+            try:
+                print("[ButtonPad] tkmacosx not found; using tk.Button (colors may not update on macOS). "
+                      "Install with: pip install tkmacosx")
+            except Exception:
+                pass
+
         # Outer container; border controls padding to window edges
         self._container = tk.Frame(self.root, bg=self.window_bg)
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
         # storage: keyed by (x, y) == (col, row)
-        self._cell_to_widget: Dict[Tuple[int, int], WidgetLike] = {}
+        self._cell_to_element: Dict[Tuple[int, int], ElementLike] = {}
         self._widgets: List[tk.Widget] = []
         self._destroyed = False
 
-        # global click hooks (user sets these)
-        # NOTE: these receive the widget wrapper object
-        self.on_pre_click: Optional[Callable[[WidgetLike], None]] = None
-        self.on_post_click: Optional[Callable[[WidgetLike], None]] = None
+        # global click hooks (user sets these) — receive the element wrapper
+        self.on_pre_click: Optional[Callable[[ElementLike], None]] = None
+        self.on_post_click: Optional[Callable[[ElementLike], None]] = None
 
         # keyboard mapping: keysym(lowercased) -> (x, y)
         self._keymap: Dict[str, Tuple[int, int]] = {}
@@ -301,17 +335,17 @@ class ButtonPad:
             except Exception:
                 pass
         self._widgets.clear()
-        self._cell_to_widget.clear()
+        self._cell_to_element.clear()
 
         self._build_from_config(new_configuration)
 
     # Public accessor uses Cartesian order: [x, y]
-    def __getitem__(self, key: Tuple[int, int]) -> WidgetLike:
-        return self._cell_to_widget[tuple(key)]
+    def __getitem__(self, key: Tuple[int, int]) -> ElementLike:
+        return self._cell_to_element[tuple(key)]
 
     def map_key(self, key: str, x: int, y: int) -> None:
         """
-        Map a keyboard key to trigger the widget at (x, y).
+        Map a keyboard key to trigger the element at (x, y).
         `key` should be a Tk keysym (e.g., "1", "a", "Escape", "space", "Return").
         """
         if not isinstance(key, str) or not key:
@@ -332,42 +366,42 @@ class ButtonPad:
         pos = self._keymap.get(ks)  # (x, y)
         if pos is None:
             return
-        widget = self._cell_to_widget.get(pos)  # keyed by (x, y)
-        if widget is not None:
-            self._fire_click(widget)
+        element = self._cell_to_element.get(pos)  # keyed by (x, y)
+        if element is not None:
+            self._fire_click(element)
 
-    def _fire_click(self, widget: WidgetLike) -> None:
-        """Invoke pre->on_click->post sequence safely, delivering (widget, x, y)."""
-        x, y = widget._pos  # set during placement
+    def _fire_click(self, element: ElementLike) -> None:
+        """Invoke pre->on_click->post sequence safely, delivering (element, x, y)."""
+        x, y = element._pos  # set during placement
         try:
             if self.on_pre_click:
-                self.on_pre_click(widget)
+                self.on_pre_click(element)
         except Exception:
             pass
         try:
-            if widget.on_click:
-                widget.on_click(widget, x, y)
+            if element.on_click:
+                element.on_click(element, x, y)
         except Exception:
             pass
         try:
             if self.on_post_click:
-                self.on_post_click(widget)
+                self.on_post_click(element)
         except Exception:
             pass
 
-    def _fire_enter(self, widget: WidgetLike) -> None:
-        x, y = widget._pos
+    def _fire_enter(self, element: ElementLike) -> None:
+        x, y = element._pos
         try:
-            if widget.on_enter:
-                widget.on_enter(widget, x, y)
+            if element.on_enter:
+                element.on_enter(element, x, y)
         except Exception:
             pass
 
-    def _fire_exit(self, widget: WidgetLike) -> None:
-        x, y = widget._pos
+    def _fire_exit(self, element: ElementLike) -> None:
+        x, y = element._pos
         try:
-            if widget.on_exit:
-                widget.on_exit(widget, x, y)
+            if element.on_exit:
+                element.on_exit(element, x, y)
         except Exception:
             pass
 
@@ -505,20 +539,29 @@ class ButtonPad:
 
         # Create the actual widget and make it fill the frame (no internal margins)
         if spec.kind == "button":
-            w = tk.Button(
+            # Choose button class depending on platform and availability
+            ButtonCls = MacButton if (IS_MAC and MacButton is not None) else tk.Button
+
+            # tkmacosx extras (optional aesthetics)
+            extra_kwargs = {}
+            if ButtonCls is MacButton:
+                extra_kwargs.update({
+                    "borderless": 1,
+                    "focuscolor": "",
+                })
+
+            w = ButtonCls(
                 frame,
                 text=spec.text,
                 bg=self.default_background_color,
                 fg=self.default_text_color,
-                relief="raised",
-                padx=0,
-                pady=0,
                 highlightthickness=0,
+                **extra_kwargs,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            widget: WidgetLike = BPButton(w, text=spec.text)
+            element: ElementLike = BPButton(w, text=spec.text)
             # Click via ButtonPad dispatcher
-            w.configure(command=lambda e=widget: self._fire_click(e))
+            w.configure(command=lambda e=element: self._fire_click(e))
 
         elif spec.kind == "label":
             w = tk.Label(
@@ -532,35 +575,35 @@ class ButtonPad:
                 highlightthickness=0,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            widget = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
+            element = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
             # Click dispatch (optional for labels)
-            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
+            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         elif spec.kind == "entry":
             w = tk.Entry(frame, relief="sunken", highlightthickness=0)
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            widget = BPTextBox(w, text=spec.text)
+            element = BPTextBox(w, text=spec.text)
             # Click dispatch (optional for entries)
-            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
+            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         else:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
         # Record this element's *top-left* position
-        widget._pos = (c, r)
+        element._pos = (c, r)
 
-        # Hover enter/exit handlers (bound here because we know the element & coords)
-        w.bind("<Enter>", lambda evt, e=widget: self._fire_enter(e))
-        w.bind("<Leave>", lambda evt, e=widget: self._fire_exit(e))
+        # Hover enter/exit handlers (bind here so we know the element & its coords)
+        w.bind("<Enter>", lambda evt, e=element: self._fire_enter(e))
+        w.bind("<Leave>", lambda evt, e=element: self._fire_exit(e))
 
         # Map every cell in this rectangle to the created element (keyed by x,y)
         for rr in range(r, r + rowspan):
             for cc in range(c, c + colspan):
-                self._cell_to_widget[(cc, rr)] = widget
+                self._cell_to_element[(cc, rr)] = element
 
         # keep references for later destruction
         self._widgets.append(frame)
-        self._widgets.append(widget.widget)
+        self._widgets.append(element.widget)
 
     # ----- config parsing -----
     def _parse_configuration(self, configuration: str) -> List[List[Optional[_Spec]]]:

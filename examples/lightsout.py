@@ -54,7 +54,8 @@ class LightsOut:
                 el = self.pad[x, y]
                 el.font_name = FONT
                 el.font_size = FONT_SZ
-                el.text = "●"  # we’ll dim/brighten with colors
+                #el.text = "●"  # we’ll dim/brighten with colors
+                el.text = ''
                 # clicking toggles (element, x, y) signature:
                 el.on_click = self.handle_click
 
