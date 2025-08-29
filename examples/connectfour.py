@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from ButtonPad import ButtonPad, BPButton, BPLabel
+from buttonpad import ButtonPad, BPButton, BPLabel
 
 
 COLS = 6  # columns (top row has 6 buttons)
@@ -65,6 +65,8 @@ class ConnectFour:
         for c in range(COLS):
             btn = self.buttons[c]
             btn.on_click = self._make_drop_handler(c)
+            # Set two-line caption on the selector buttons
+            btn.text = "Drop\nHere"
 
         self._new_game()
 
