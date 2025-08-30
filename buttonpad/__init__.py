@@ -48,19 +48,23 @@ class _BaseElement:
         self.widget = widget
         self._font = _FontSpec()
 
-        # Text handling: prefer textvariable when supported; fall back to .configure(text=...)
+        # Text handling:
+        # - Use textvariable only for widgets known to support it reliably (Label/Entry).
+        # - For buttons (tk.Button, tkmacosx Button), set text directly to avoid macOS issues.
         self._text = text
         self._textvar = tk.StringVar(value=text)
         self._uses_textvariable = False
-        try:
-            self.widget.configure(textvariable=self._textvar)
-            self._uses_textvariable = True
-        except tk.TclError:
-            # Widgets like some macOS buttons may not support textvariable
+        if isinstance(widget, tk.Label) or isinstance(widget, tk.Entry):
+            try:
+                self.widget.configure(textvariable=self._textvar)
+                self._uses_textvariable = True
+            except tk.TclError:
+                self._uses_textvariable = False
+        if not self._uses_textvariable:
             try:
                 self.widget.configure(text=text)
             except tk.TclError:
-                pass  # some widgets simply don't have text (e.g., certain containers)
+                pass  # some widgets simply don't have text
 
         try:
             self._background_color = widget.cget("bg")
@@ -73,12 +77,16 @@ class _BaseElement:
             self._text_color = "black"
 
         # Callback hooks (ButtonPad will invoke these)
-        self._on_click: Callback = None
-        self.on_enter: Callback = None
-        self.on_exit: Callback = None
+        self._on_click = None
+        self.on_enter = None
+        self.on_exit = None
 
         # Filled in by ButtonPad when placed
-        self._pos: Tuple[int, int] = (0, 0)
+        self._pos = (0, 0)
+        # Tooltip data (managed by ButtonPad on hover)
+        self._tooltip_text = None
+        self._tooltip_after = None
+        self._tooltip_window = None
 
     # ----- text (robust across tk / tkmacosx) -----
     @property
@@ -110,6 +118,16 @@ class _BaseElement:
             self.widget.configure(text=value)
         except tk.TclError:
             pass
+
+    # ----- tooltip -----
+    @property
+    def tooltip(self) -> Optional[str]:
+        """Optional hover tooltip text. Set to a string to enable; None/'' to disable."""
+        return self._tooltip_text
+
+    @tooltip.setter
+    def tooltip(self, value: Optional[str]) -> None:
+        self._tooltip_text = value or None
 
     # ----- colors -----
     @property
@@ -373,6 +391,11 @@ class ButtonPad:
     def _fire_click(self, element: ElementLike) -> None:
         """Invoke pre->on_click->post sequence safely, delivering (element, x, y)."""
         x, y = element._pos  # set during placement
+        # Hide tooltip upon click
+        try:
+            self._tooltip_hide(element)
+        except Exception:
+            pass
         try:
             if self.on_pre_click:
                 self.on_pre_click(element)
@@ -391,6 +414,11 @@ class ButtonPad:
 
     def _fire_enter(self, element: ElementLike) -> None:
         x, y = element._pos
+        # Schedule tooltip show if present
+        try:
+            self._tooltip_schedule(element)
+        except Exception:
+            pass
         try:
             if element.on_enter:
                 element.on_enter(element, x, y)
@@ -399,11 +427,80 @@ class ButtonPad:
 
     def _fire_exit(self, element: ElementLike) -> None:
         x, y = element._pos
+        # Hide tooltip on exit
+        try:
+            self._tooltip_hide(element)
+        except Exception:
+            pass
         try:
             if element.on_exit:
                 element.on_exit(element, x, y)
         except Exception:
             pass
+
+    # ----- tooltip helpers (no idlelib) -----
+    def _tooltip_schedule(self, element: ElementLike) -> None:
+        text = getattr(element, "_tooltip_text", None)
+        if not text:
+            return
+        # cancel previous timer
+        after_id = getattr(element, "_tooltip_after", None)
+        if after_id:
+            try:
+                self.root.after_cancel(after_id)  # type: ignore[arg-type]
+            except Exception:
+                pass
+        element._tooltip_after = self.root.after(350, lambda e=element: self._tooltip_show(e))
+
+    def _tooltip_show(self, element: ElementLike) -> None:
+        text = getattr(element, "_tooltip_text", None)
+        if not text:
+            return
+        tw = getattr(element, "_tooltip_window", None)
+        if tw is None:
+            tw = tk.Toplevel(self.root)
+            tw.wm_overrideredirect(True)
+            try:
+                tw.attributes("-topmost", True)
+            except Exception:
+                pass
+            frame = tk.Frame(tw, bg="#333333", bd=0, highlightthickness=0)
+            frame.pack(fill="both", expand=True)
+            label = tk.Label(frame, text=text, bg="#333333", fg="white", padx=6, pady=3, justify="left")
+            label.pack()
+            element._tooltip_window = tw
+        else:
+            # update text
+            try:
+                for child in tw.winfo_children():
+                    for gc in child.winfo_children():
+                        if isinstance(gc, tk.Label):
+                            gc.configure(text=text)
+            except Exception:
+                pass
+        # position near mouse pointer
+        try:
+            x = self.root.winfo_pointerx() + 12
+            y = self.root.winfo_pointery() + 16
+            tw.wm_geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+    def _tooltip_hide(self, element: ElementLike) -> None:
+        after_id = getattr(element, "_tooltip_after", None)
+        if after_id:
+            try:
+                self.root.after_cancel(after_id)  # type: ignore[arg-type]
+            except Exception:
+                pass
+        element._tooltip_after = None
+        tw = getattr(element, "_tooltip_window", None)
+        if tw is not None:
+            try:
+                tw.destroy()
+            except Exception:
+                pass
+        element._tooltip_window = None
 
     def _build_from_config(self, configuration: str) -> None:
         grid_specs = self._parse_configuration(configuration)
@@ -555,6 +652,12 @@ class ButtonPad:
                 text=spec.text,
                 bg=self.default_background_color,
                 fg=self.default_text_color,
+                anchor="center",
+                justify="center",
+                padx=0,
+                pady=0,
+                bd=0,
+                relief="flat",
                 highlightthickness=0,
                 **extra_kwargs,
             )
