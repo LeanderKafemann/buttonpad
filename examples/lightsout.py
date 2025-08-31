@@ -41,7 +41,7 @@ class LightsOut:
             default_bg_color="#121212",
             default_text_color="white",
             title="Lights Out (5×5)",
-            resizable=False,
+            resizable=True,
             border=12,
         )
 

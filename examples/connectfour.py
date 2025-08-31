@@ -11,8 +11,8 @@ from typing import List, Optional, Tuple
 from buttonpad import ButtonPad, BPButton, BPLabel
 
 
-COLS = 6  # columns (top row has 6 buttons)
-ROWS = 7  # play rows beneath buttons; total grid rows = 1 + ROWS = 8
+COLS = 7  # columns (top row has 7 buttons)
+ROWS = 6  # play rows beneath buttons; total grid rows = 1 + ROWS = 7
 
 # UI tuning
 CELL_W = 64
