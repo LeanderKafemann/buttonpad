@@ -13,6 +13,7 @@ import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 import tkinter as tk
+from pymsgbox import alert, confirm, prompt, password  # required dependency
 
 # --- Optional macOS support for colorable buttons ---
 IS_MAC = sys.platform == "darwin"
@@ -22,7 +23,17 @@ try:
 except Exception:
     MacButton = None  # fallback to tk.Button when unavailable
 
-__all__ = ["ButtonPad", "BPButton", "BPLabel", "BPTextBox"]
+__all__ = [
+    "ButtonPad",
+    "BPButton",
+    "BPLabel",
+    "BPTextBox",
+    # Re-exported pymsgbox helpers
+    "alert",
+    "confirm",
+    "prompt",
+    "password",
+]
 
 # ---------- element wrappers ----------
 
