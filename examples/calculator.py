@@ -78,7 +78,7 @@ def main() -> None:
         default_bg_color="white",
         default_text_color="#2c2c2c",
         title="ButtonPad Calculator",
-        resizable=False,
+        resizable=True,
         border=10,
     )
 

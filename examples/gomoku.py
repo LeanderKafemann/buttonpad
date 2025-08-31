@@ -64,7 +64,7 @@ def main() -> None:
         default_bg_color=EMPTY_BG,
         default_text_color="black",
         window_color="#f0f0f0",
-        resizable=False,
+        resizable=True,
     )
 
     # Board state: 0 empty, 1 white, 2 black

@@ -42,12 +42,12 @@ def main() -> None:
         default_bg_color=BOARD_BG,
         default_text_color="white",
         window_color=WINDOW_BG,
-        resizable=False,
+        resizable=True,
     )
 
     # 0 empty, 1 white, 2 black
     board: List[List[int]] = [[0 for _ in range(SIZE)] for _ in range(SIZE)]
-    turn = {"who": 1}  # white starts
+    turn = {"who": 2}  # black starts
 
     # Directions for scanning flips
     DIRS: Tuple[Tuple[int, int], ...] = (

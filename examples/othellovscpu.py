@@ -3,9 +3,9 @@ from __future__ import annotations
 # Othello (Reversi) vs CPU: 8x8 grid of buttons using ButtonPad.
 # - Window background is brown
 # - Cell background starts slightly dark green
-# - Human is WHITE and moves first by clicking a legal square
+# - Human is WHITE; CPU is BLACK; BLACK moves first
 # - Legal human moves are shown as a yellow dot (text) on empty cells
-# - CPU is BLACK and replies automatically
+# - CPU replies automatically
 # - When no moves for either side, the winner's color slowly flashes for a few seconds, then the board resets
 
 import buttonpad
@@ -130,13 +130,13 @@ def main() -> None:
         default_bg_color=BOARD_BG,
         default_text_color=TEXT_DEFAULT,
         window_color=WINDOW_BG,
-        resizable=False,
+        resizable=True,
     )
 
     board: List[List[int]] = [[EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
     cells = [pad[x, y] for y in range(SIZE) for x in range(SIZE)]  # type: ignore[list-item]
 
-    state = {"turn": WHITE, "over": False}
+    state = {"turn": BLACK, "over": False}
 
     def set_cell_color(x: int, y: int, who: int) -> None:
         el = pad[x, y]  # type: ignore[index]
@@ -172,9 +172,14 @@ def main() -> None:
         board[mid][mid] = WHITE
         board[mid - 1][mid] = BLACK
         board[mid][mid - 1] = BLACK
-        state["turn"] = WHITE
+        state["turn"] = BLACK
         state["over"] = False
-        update_ui(show_hints=True)
+        # No human hints when BLACK starts; schedule first CPU move
+        update_ui(show_hints=False)
+        try:
+            pad.root.after(250, cpu_move)
+        except Exception:
+            pass
 
     def end_and_flash_winner() -> None:
         # Count discs
