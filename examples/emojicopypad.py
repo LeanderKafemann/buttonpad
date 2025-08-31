@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Dict, List, Sequence
 import sys
 import tkinter.font as tkfont
+import unicodedata as _ucd
 
 try:
     import pyperclip  # type: ignore
@@ -125,6 +126,40 @@ def _pick_emoji_font(root) -> str:
     return "TkDefaultFont"
 
 
+def _emoji_name(s: str) -> str:
+    """Best-effort human-readable name for an emoji string.
+    - Try unicodedata.name on whole string
+    - Else join component code point names (skip ZWJ/VS16)
+    - Special-case regional indicator flags to FLAG: XY
+    """
+    if not s:
+        return ""
+    try:
+        return _ucd.name(s)
+    except Exception:
+        pass
+    # Flag composed of regional indicators
+    ris = [ord(ch) for ch in s if 0x1F1E6 <= ord(ch) <= 0x1F1FF]
+    if ris:
+        try:
+            letters = ''.join(chr(65 + (cp - 0x1F1E6)) for cp in ris)
+            return f"FLAG: {letters}"
+        except Exception:
+            pass
+    # Build from components, skipping joiners/variation selectors
+    parts: List[str] = []
+    for ch in s:
+        cp = ord(ch)
+        if cp == 0x200D or cp == 0xFE0F:  # ZWJ, VS16
+            continue
+        nm = _ucd.name(ch, None)
+        if nm:
+            parts.append(nm)
+    if parts:
+        return " + ".join(parts)
+    return "emoji"
+
+
 def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
@@ -138,7 +173,7 @@ def main() -> None:
         default_bg_color=BOTTOM_BG,
         default_text_color="black",
         window_color="#f0f0f0",
-        resizable=False,
+        resizable=True,
     )
 
     # References
@@ -192,6 +227,11 @@ def main() -> None:
             cell.font_name = EMOJI_FONT
             cell.font_size = 22
             cell.on_click = copy_emoji
+            # Tooltip with emoji name
+            try:
+                cell.tooltip = _emoji_name(cell.text)  # type: ignore[attr-defined]
+            except Exception:
+                pass
         # Ensure UI refresh for platforms/widgets that delay redraw
         try:
             pad.root.update_idletasks()
