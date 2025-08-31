@@ -6,6 +6,7 @@ from __future__ import annotations
 # - Off color: dark blue; On color: white
 # - Starts paused (▶). Click cells to toggle; click the big button to play/pause.
 
+import random
 from typing import List, Tuple
 
 try:
@@ -179,7 +180,7 @@ def main() -> None:
 		# Randomize board
 		for y in range(ROWS):
 			for x in range(COLS):
-				board[y][x] = 1 if (hash((x, y, id(board))) ^ (x * 1315423911 + y * 2654435761)) & 1 else 0
+				board[y][x] = random.randint(0, 1)
 		update_grid()
 
 	def on_invert(_el, _x, _y):
