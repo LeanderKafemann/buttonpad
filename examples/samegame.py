@@ -147,9 +147,18 @@ def main() -> None:
         apply_gravity()
         shift_columns_left()
         update_ui()
-        # Optional auto reset when no moves left
+        # End-of-game: show remaining blocks and restart
         if not has_moves():
-            pad.root.after(400, new_game)
+            remaining = sum(1 for yy in range(ROWS) for xx in range(COLS) if board[yy][xx] is not None)
+            msg = f"{remaining} out of {COLS * ROWS} blocks remaining."
+            if remaining == 0:
+                msg += " PERFECT GAME!"
+            try:
+                buttonpad.alert(msg)
+            except Exception:
+                # Fallback: print if alert unavailable
+                print(msg)
+            new_game()
 
     # Wire handlers
     for y in range(ROWS):
