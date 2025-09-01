@@ -1,11 +1,5 @@
 """
-ButtonPad: declare tkinter button/label/entry grids from a configuration string.
-
-Public classes:
-- ButtonPad
-- BPButton
-- BPLabel
-- BPTextBox
+TODO
 """
 from __future__ import annotations
 
@@ -13,10 +7,10 @@ import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 import tkinter as tk
-from pymsgbox import alert, confirm, prompt, password  # required dependency
+from pymsgbox import alert, confirm, prompt, password
+import warnings
 
 # --- Optional macOS support for colorable buttons ---
-IS_MAC = sys.platform == "darwin"
 try:
     # pip install tkmacosx
     from tkmacosx import Button as MacButton  # type: ignore
@@ -307,10 +301,10 @@ class ButtonPad:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
 
         # Optional message if macOS without tkmacosx
-        if IS_MAC and MacButton is None:
+        if sys.platform == "darwin" and MacButton is None:
             try:
-                print("[ButtonPad] tkmacosx not found; using tk.Button (colors may not update on macOS). "
-                      "Install with: pip install tkmacosx")
+                warnings.warn("[ButtonPad] tkmacosx not found; using tk.Button (colors may not update on macOS). "
+                              "Install with: pip install tkmacosx", RuntimeWarning)
             except Exception:
                 pass
 
@@ -648,7 +642,7 @@ class ButtonPad:
         # Create the actual widget and make it fill the frame (no internal margins)
         if spec.kind == "button":
             # Choose button class depending on platform and availability
-            ButtonCls = MacButton if (IS_MAC and MacButton is not None) else tk.Button
+            ButtonCls = MacButton if (sys.platform == "darwin" and MacButton is not None) else tk.Button
 
             # tkmacosx extras (optional aesthetics)
             extra_kwargs = {}
