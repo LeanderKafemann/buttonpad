@@ -32,8 +32,8 @@ __all__ = [
 # ---------- element wrappers ----------
 
 # All element callbacks receive: (element_object, x, y)
-ElementLike = Union["BPButton", "BPLabel", "BPTextBox"]
-Callback = Optional[Callable[[ElementLike, int, int], None]]
+BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox"]
+BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
 
 
 @dataclass
@@ -42,7 +42,7 @@ class _FontSpec:
     size: int = 12
 
 
-class _BaseElement:
+class _BPBase:
     """
     Base wrapper for a Tk widget. Public attributes:
       - widget: the underlying tkinter widget
@@ -186,23 +186,23 @@ class _BaseElement:
 
     # ----- unified click handler (set by user; fired by ButtonPad) -----
     @property
-    def on_click(self) -> Callback:
+    def on_click(self) -> BPCallback:
         return self._on_click
 
     @on_click.setter
-    def on_click(self, func: Callback) -> None:
+    def on_click(self, func: BPCallback) -> None:
         self._on_click = func
 
 
 
-class BPButton(_BaseElement):
+class BPButton(_BPBase):
     def __init__(self, widget: tk.Widget, text: str):
         super().__init__(widget, text=text)
         # default click prints text (ButtonPad calls via dispatcher)
         self.on_click = lambda el, x, y: print(self.text)
 
 
-class BPLabel(_BaseElement):
+class BPLabel(_BPBase):
     def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
         super().__init__(widget, text=text)
         self._anchor = anchor
@@ -218,7 +218,7 @@ class BPLabel(_BaseElement):
         self.widget.configure(anchor=value)
 
 
-class BPTextBox(_BaseElement):
+class BPTextBox(_BPBase):
     def __init__(self, widget: tk.Entry, text: str):
         super().__init__(widget, text=text)
 
@@ -313,13 +313,13 @@ class ButtonPad:
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
         # storage: keyed by (x, y) == (col, row)
-        self._cell_to_element: Dict[Tuple[int, int], ElementLike] = {}
+        self._cell_to_element: Dict[Tuple[int, int], BPWidgetType] = {}
         self._widgets: List[tk.Widget] = []
         self._destroyed = False
 
         # global click hooks (user sets these) — receive the element wrapper
-        self.on_pre_click: Optional[Callable[[ElementLike], None]] = None
-        self.on_post_click: Optional[Callable[[ElementLike], None]] = None
+        self.on_pre_click: Optional[Callable[[BPWidgetType], None]] = None
+        self.on_post_click: Optional[Callable[[BPWidgetType], None]] = None
 
         # keyboard mapping: keysym(lowercased) -> (x, y)
         self._keymap: Dict[str, Tuple[int, int]] = {}
@@ -363,7 +363,7 @@ class ButtonPad:
         self._build_from_config(new_configuration)
 
     # Public accessor uses Cartesian order: [x, y]
-    def __getitem__(self, key: Tuple[int, int]) -> ElementLike:
+    def __getitem__(self, key: Tuple[int, int]) -> BPWidgetType:
         return self._cell_to_element[tuple(key)]
 
     def map_key(self, key: str, x: int, y: int) -> None:
@@ -393,7 +393,7 @@ class ButtonPad:
         if element is not None:
             self._fire_click(element)
 
-    def _fire_click(self, element: ElementLike) -> None:
+    def _fire_click(self, element: BPWidgetType) -> None:
         """Invoke pre->on_click->post sequence safely, delivering (element, x, y)."""
         x, y = element._pos  # set during placement
         # Hide tooltip upon click
@@ -417,7 +417,7 @@ class ButtonPad:
         except Exception:
             pass
 
-    def _fire_enter(self, element: ElementLike) -> None:
+    def _fire_enter(self, element: BPWidgetType) -> None:
         x, y = element._pos
         # Schedule tooltip show if present
         try:
@@ -430,7 +430,7 @@ class ButtonPad:
         except Exception:
             pass
 
-    def _fire_exit(self, element: ElementLike) -> None:
+    def _fire_exit(self, element: BPWidgetType) -> None:
         x, y = element._pos
         # Hide tooltip on exit
         try:
@@ -444,7 +444,7 @@ class ButtonPad:
             pass
 
     # ----- tooltip helpers (no idlelib) -----
-    def _tooltip_schedule(self, element: ElementLike) -> None:
+    def _tooltip_schedule(self, element: BPWidgetType) -> None:
         text = getattr(element, "_tooltip_text", None)
         if not text:
             return
@@ -457,7 +457,7 @@ class ButtonPad:
                 pass
         element._tooltip_after = self.root.after(350, lambda e=element: self._tooltip_show(e))
 
-    def _tooltip_show(self, element: ElementLike) -> None:
+    def _tooltip_show(self, element: BPWidgetType) -> None:
         text = getattr(element, "_tooltip_text", None)
         if not text:
             return
@@ -491,7 +491,7 @@ class ButtonPad:
         except Exception:
             pass
 
-    def _tooltip_hide(self, element: ElementLike) -> None:
+    def _tooltip_hide(self, element: BPWidgetType) -> None:
         after_id = getattr(element, "_tooltip_after", None)
         if after_id:
             try:
@@ -667,7 +667,7 @@ class ButtonPad:
                 **extra_kwargs,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element: ElementLike = BPButton(w, text=spec.text)
+            element: BPWidgetType = BPButton(w, text=spec.text)
             # Click via ButtonPad dispatcher
             w.configure(command=lambda e=element: self._fire_click(e))
 

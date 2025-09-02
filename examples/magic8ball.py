@@ -49,14 +49,14 @@ PAUSE_BLACK_MS = 1000
 ANSWER_FONT_SIZE = 12  # adjust the revealed answer text size here
 
 ANSWERS = [
-    "IT\nIS\nCERTAIN",
-    "IT\nIS\nDECIDEDLY\nSO",
+    "IT IS\nCERTAIN",
+    "IT IS\nDECIDEDLY\nSO",
     "YES\nDEFINITELY",
-    "REPLY\nHAZY\nTRY\nAGAIN",
+    "REPLY HAZY\nTRY AGAIN",
     "ASK\nAGAIN\nLATER",
     "CONCENTRATE\nAND\nASK\nAGAIN",
-    "MY\nREPLY\nIS\nNO",
-    "OUTLOOK\nNOT\nSO\nGOOD",
+    "MY REPLY\nIS NO",
+    "OUTLOOK\nNOT SO\nGOOD",
     "VERY\nDOUBTFUL",
 ]
 
