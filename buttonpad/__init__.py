@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any, TYPE_CHECKING
 import tkinter as tk
 from pymsgbox import alert, confirm, prompt, password
 import warnings
@@ -36,10 +36,6 @@ BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox"]
 BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
 
 
-@dataclass
-class _FontSpec:
-    name: str = "TkDefaultFont"
-    size: int = 12
 
 
 class _BPBase:
@@ -51,7 +47,8 @@ class _BPBase:
 
     def __init__(self, widget: tk.Widget, text: str = ""):
         self.widget = widget
-        self._font = _FontSpec()
+        self._font_name = "TkDefaultFont"
+        self._font_size = 12
 
         # Text handling:
         # - Use textvariable only for widgets known to support it reliably (Label/Entry).
@@ -162,25 +159,25 @@ class _BPBase:
     # ----- font -----
     @property
     def font_name(self) -> str:
-        return self._font.name
+        return self._font_name
 
     @font_name.setter
     def font_name(self, value: str) -> None:
-        self._font.name = value
+        self._font_name = value
         self._apply_font()
 
     @property
     def font_size(self) -> int:
-        return self._font.size
+        return self._font_size
 
     @font_size.setter
     def font_size(self, value: int) -> None:
-        self._font.size = int(value)
+        self._font_size = int(value)
         self._apply_font()
 
     def _apply_font(self) -> None:
         try:
-            self.widget.configure(font=(self._font.name, self._font.size))
+            self.widget.configure(font=(self._font_name, self._font_size))
         except tk.TclError:
             pass
 
