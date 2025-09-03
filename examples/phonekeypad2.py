@@ -5,6 +5,7 @@ import buttonpad
 def press_label(widget, x, y):
     print(widget.text)
     display.text += widget.text
+    bp.status_bar = f"Pressed {widget.text}"
 
 def press_del(widget, x, y):
     display.text = display.text[:-1]
@@ -28,6 +29,7 @@ if __name__ == "__main__":
         default_text_color='darkblue',
         window_color='green',
     )
+    bp.status_bar = ''
     display: buttonpad.BPTextBox = bp[0,0]
     for x in range(3):
         for y in range(1, 5):
