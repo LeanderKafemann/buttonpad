@@ -279,6 +279,7 @@ class ButtonPad:
         title: str = 'ButtonPad App',
         resizable: bool = True,
         border: int = 0,
+        status_bar: Optional[str] = None,
     ):
         self._original_configuration = layout
 
@@ -337,6 +338,13 @@ class ButtonPad:
 
         # Build initial grid
         self._build_from_config(layout)
+
+        # Initialize status bar if requested
+        if status_bar is not None:
+            try:
+                self.status_bar = str(status_bar)
+            except Exception:
+                pass
 
     # ----- status bar API -----
     @property
