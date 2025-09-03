@@ -297,11 +297,22 @@ class ButtonPad:
         self.root.resizable(resizable, resizable)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
 
+        # Optional status bar (created on-demand when status_bar is set)
+        self._status_frame = None
+        self._status_label = None
+        self._status_text = None
+        # Defaults: background inherits window background; text inherits default button text color
+        self._status_bg_color = self.window_bg
+        self._status_text_color = self.default_text_color
+
         # Optional message if macOS without tkmacosx
         if sys.platform == "darwin" and MacButton is None:
             try:
-                warnings.warn("[ButtonPad] tkmacosx not found; using tk.Button (colors may not update on macOS). "
-                              "Install with: pip install tkmacosx", RuntimeWarning)
+                warnings.warn(
+                    "[ButtonPad] tkmacosx not found; using tk.Button (colors may not update on macOS). "
+                    "Install with: pip install tkmacosx",
+                    RuntimeWarning,
+                )
             except Exception:
                 pass
 
@@ -310,22 +321,124 @@ class ButtonPad:
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
         # storage: keyed by (x, y) == (col, row)
-        self._cell_to_element: Dict[Tuple[int, int], BPWidgetType] = {}
-        self._widgets: List[tk.Widget] = []
+        self._cell_to_element = {}
+        self._widgets = []
         self._destroyed = False
 
         # global click hooks (user sets these) — receive the element wrapper
-        self.on_pre_click: Optional[Callable[[BPWidgetType], None]] = None
-        self.on_post_click: Optional[Callable[[BPWidgetType], None]] = None
+        self.on_pre_click = None
+        self.on_post_click = None
 
         # keyboard mapping: keysym(lowercased) -> (x, y)
-        self._keymap: Dict[str, Tuple[int, int]] = {}
+        self._keymap = {}
         # Bind globally so focus doesn't matter; handle both forms for robustness
         self.root.bind_all("<Key>", self._on_key)
         self.root.bind_all("<KeyPress>", self._on_key)
 
         # Build initial grid
         self._build_from_config(layout)
+
+    # ----- status bar API -----
+    @property
+    def status_bar(self) -> Optional[str]:
+        """Get or set the text shown in a bottom status bar.
+
+        - None (default) means no status bar is shown.
+        - Setting to a string shows/updates a bottom status bar with that text.
+        - Setting to None removes the status bar widget.
+        """
+        return self._status_text
+
+    @status_bar.setter
+    def status_bar(self, value: Optional[str]) -> None:
+        # Normalize: empty string still shows an empty bar; None removes it
+        if value is None:
+            self._status_text = None
+            # Destroy if exists
+            if self._status_frame is not None:
+                try:
+                    self._status_frame.destroy()
+                except Exception:
+                    pass
+            self._status_frame = None
+            self._status_label = None
+            return
+
+        # Ensure frame/label exist
+        self._status_text = str(value)
+        if self._status_frame is None or self._status_label is None:
+            try:
+                frame = tk.Frame(self.root, bg=self._status_bg_color, bd=1, relief="sunken")
+                # Place at bottom; allow main container to expand above it
+                frame.pack(side="bottom", fill="x")
+                label = tk.Label(
+                    frame,
+                    text=self._status_text,
+                    anchor="w",
+                    bg=self._status_bg_color,
+                    fg=self._status_text_color,
+                    padx=6,
+                    pady=2,
+                )
+                label.pack(side="left", fill="x", expand=True)
+                self._status_frame = frame
+                self._status_label = label
+            except Exception:
+                # If creation fails, just keep the text state; no hard crash
+                self._status_frame = None
+                self._status_label = None
+                return
+
+        # Update text if already created
+        try:
+            if self._status_label is not None:
+                self._status_label.configure(text=self._status_text)
+                # also ensure colors are in sync
+                try:
+                    self._status_label.configure(bg=self._status_bg_color, fg=self._status_text_color)
+                except Exception:
+                    pass
+            if self._status_frame is not None:
+                try:
+                    self._status_frame.configure(bg=self._status_bg_color)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    @property
+    def status_bar_background_color(self) -> str:
+        """Background color for the status bar. Defaults to window_background_color."""
+        return self._status_bg_color
+
+    @status_bar_background_color.setter
+    def status_bar_background_color(self, value: str) -> None:
+        self._status_bg_color = str(value)
+        # Update live widgets if present
+        if self._status_frame is not None:
+            try:
+                self._status_frame.configure(bg=self._status_bg_color)
+            except Exception:
+                pass
+        if self._status_label is not None:
+            try:
+                self._status_label.configure(bg=self._status_bg_color)
+            except Exception:
+                pass
+
+    @property
+    def status_bar_text_color(self) -> str:
+        """Text color for the status bar. Defaults to default_button_text_color."""
+        return self._status_text_color
+
+    @status_bar_text_color.setter
+    def status_bar_text_color(self, value: str) -> None:
+        self._status_text_color = str(value)
+        if self._status_label is not None:
+            try:
+                self._status_label.configure(fg=self._status_text_color)
+            except Exception:
+                pass
 
     # ----- public API -----
     def run(self) -> None:
