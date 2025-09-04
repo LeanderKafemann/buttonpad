@@ -280,9 +280,9 @@ class ButtonPad:
         resizable: bool = True,
         border: int = 0,
         status_bar: Optional[str] = None,
+    menu: Optional[Dict[str, Any]] = None,
     ):
         self._original_configuration = layout
-
         self._cell_width_input = cell_width
         self._cell_height_input = cell_height
         self.h_gap = int(h_gap)
@@ -305,6 +305,11 @@ class ButtonPad:
         # Defaults: background inherits window background; text inherits default button text color
         self._status_bg_color = self.window_bg
         self._status_text_color = self.default_text_color
+
+        # Menu internals
+        self._menubar = None
+        self._menu_def = None
+        self._menu_bindings = []
 
         # Optional message if macOS without tkmacosx
         if sys.platform == "darwin" and MacButton is None:
@@ -343,6 +348,13 @@ class ButtonPad:
         if status_bar is not None:
             try:
                 self.status_bar = str(status_bar)
+            except Exception:
+                pass
+
+        # Initialize menu if provided
+        if menu:
+            try:
+                self.menu = menu
             except Exception:
                 pass
 
@@ -447,6 +459,147 @@ class ButtonPad:
                 self._status_label.configure(fg=self._status_text_color)
             except Exception:
                 pass
+
+    # ----- menu API -----
+    @property
+    def menu(self) -> Optional[Dict[str, Any]]:
+        """Get or set the menu definition dict.
+        Structure:
+          {
+            "File": { "Open": func, "Quit": (func, "Ctrl+Q") },
+            "Help": { "About": func },
+            "Reload": func  # command directly on the menubar
+          }
+        A value can be:
+          - callable -> command
+          - (callable, accelerator_str) -> command with displayed accelerator and key binding
+          - dict -> submenu (recursively parsed)
+        """
+        return getattr(self, "_menu_def", None)
+
+    @menu.setter
+    def menu(self, value: Optional[Dict[str, Any]]) -> None:
+        # Clear existing
+        self._menu_clear()
+        self._menu_def = None
+        if not value:
+            return
+        # Build new menubar
+        try:
+            menubar = tk.Menu(self.root)
+            self._menu_build_recursive(menubar, value)
+            self.root.config(menu=menubar)
+            self._menubar = menubar
+            self._menu_def = value
+        except Exception:
+            # Best-effort: leave no menu if building fails
+            try:
+                self.root.config(menu="")
+            except Exception:
+                pass
+            self._menubar = None
+            self._menu_def = None
+
+    # -- menu helpers --
+    def _menu_clear(self) -> None:
+        # Unbind previous accelerators
+        binds = getattr(self, "_menu_bindings", [])
+        for seq in binds:
+            try:
+                self.root.unbind_all(seq)
+            except Exception:
+                pass
+        self._menu_bindings = []
+        # Remove existing menubar
+        if getattr(self, "_menubar", None) is not None:
+            try:
+                self.root.config(menu="")
+            except Exception:
+                pass
+            try:
+                self._menubar.destroy()
+            except Exception:
+                pass
+        self._menubar = None
+
+    def _menu_build_recursive(self, menu_widget: tk.Menu, definition: Dict[str, Any]) -> None:
+        for label, spec in definition.items():
+            if isinstance(spec, dict):
+                # Submenu
+                submenu = tk.Menu(menu_widget, tearoff=0)
+                self._menu_build_recursive(submenu, spec)
+                menu_widget.add_cascade(label=label, menu=submenu)
+            else:
+                cmd, accel_text, bind_seq = self._coerce_menu_item(spec)
+                if cmd is None:
+                    # skip invalid entries silently
+                    continue
+                if accel_text:
+                    try:
+                        menu_widget.add_command(label=label, command=cmd, accelerator=accel_text)
+                    except Exception:
+                        menu_widget.add_command(label=label, command=cmd)
+                else:
+                    menu_widget.add_command(label=label, command=cmd)
+                # Bind accelerator sequence
+                if bind_seq:
+                    self._menu_bind_accel(bind_seq, cmd)
+
+    def _coerce_menu_item(self, spec: Any) -> Tuple[Optional[Callable[[], None]], Optional[str], Optional[str]]:
+        func: Optional[Callable[[], None]] = None
+        accel: Optional[str] = None
+        if callable(spec):
+            func = lambda f=spec: f()
+        elif isinstance(spec, tuple) and len(spec) >= 1 and callable(spec[0]):
+            func = lambda f=spec[0]: f()
+            if len(spec) >= 2 and isinstance(spec[1], str):
+                accel = spec[1]
+        else:
+            return (None, None, None)
+        seq = self._parse_accelerator(accel) if accel else None
+        return (func, accel, seq)
+
+    def _menu_bind_accel(self, seq: str, func: Callable[[], None]) -> None:
+        try:
+            self.root.bind_all(seq, lambda e: func())
+            self._menu_bindings.append(seq)
+            # If Command on non-mac, also bind Control variant for convenience
+            if "Command" in seq and sys.platform != "darwin":
+                ctrl_seq = seq.replace("Command", "Control")
+                self.root.bind_all(ctrl_seq, lambda e: func())
+                self._menu_bindings.append(ctrl_seq)
+        except Exception:
+            pass
+
+    def _parse_accelerator(self, accel: str) -> Optional[str]:
+        if not accel:
+            return None
+        parts = [p.strip() for p in accel.replace("+", "-").split("-") if p.strip()]
+        if not parts:
+            return None
+        mods_map = {
+            "ctrl": "Control", "control": "Control",
+            "cmd": "Command", "command": "Command",
+            "alt": "Alt", "option": "Alt",
+            "shift": "Shift",
+        }
+        key = parts[-1]
+        mods = [mods_map.get(p.lower(), None) for p in parts[:-1]]
+        mods = [m for m in mods if m]
+        # Normalize key
+        named = {
+            "enter": "Return", "return": "Return",
+            "esc": "Escape", "escape": "Escape",
+            "space": "space",
+            "left": "Left", "right": "Right", "up": "Up", "down": "Down",
+            "tab": "Tab", "backspace": "BackSpace", "delete": "Delete",
+        }
+        if len(key) == 1:
+            ksym = key.lower()
+        else:
+            ksym = named.get(key.lower(), key)
+        seq = "<" + ("-".join(mods + [ksym])) + ">" if mods else f"<{ksym}>"
+        return seq
 
     # ----- public API -----
     def run(self) -> None:
