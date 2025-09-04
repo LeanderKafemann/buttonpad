@@ -216,8 +216,35 @@ class BPLabel(_BPBase):
 
 
 class BPTextBox(_BPBase):
-    def __init__(self, widget: tk.Entry, text: str):
+    def __init__(self, widget: tk.Text, text: str):
+        # Initialize base without relying on textvariable/text configure
         super().__init__(widget, text=text)
+        # Ensure initial text is shown in Text widget
+        try:
+            widget.delete("1.0", "end")
+            if text:
+                widget.insert("1.0", text)
+        except Exception:
+            pass
+
+    # Override text property to work with tk.Text (multiline)
+    @property
+    def text(self) -> str:  # type: ignore[override]
+        try:
+            self._text = self.widget.get("1.0", "end-1c")  # omit trailing newline
+        except Exception:
+            pass
+        return self._text
+
+    @text.setter  # type: ignore[override]
+    def text(self, value: str) -> None:
+        self._text = value or ""
+        try:
+            self.widget.delete("1.0", "end")
+            if self._text:
+                self.widget.insert("1.0", self._text)
+        except Exception:
+            pass
 
 
 # ---------- layout & parsing ----------
@@ -959,10 +986,16 @@ class ButtonPad:
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         elif spec.kind == "entry":
-            w = tk.Entry(frame, relief="sunken", highlightthickness=0)
+            w = tk.Text(
+                frame,
+                relief="sunken",
+                highlightthickness=0,
+                wrap="word",
+                bd=1,
+            )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
             element = BPTextBox(w, text=spec.text)
-            # Click dispatch (optional for entries)
+            # Click dispatch (optional for text areas)
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         else:
