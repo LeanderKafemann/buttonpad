@@ -7,7 +7,12 @@ import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any, TYPE_CHECKING
 import tkinter as tk
-from pymsgbox import alert, confirm, prompt, password
+from pymsgbox import (
+    alert as _pymsgbox_alert,
+    confirm as _pymsgbox_confirm,
+    prompt as _pymsgbox_prompt,
+    password as _pymsgbox_password,
+)
 import warnings
 
 # --- Optional macOS support for colorable buttons ---
@@ -34,6 +39,45 @@ __all__ = [
 # All element callbacks receive: (element_object, x, y)
 BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox"]
 BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
+
+# Track the last-created Tk root so we can restore focus after dialogs
+_last_root: Optional[tk.Tk] = None
+
+def _refocus_root() -> None:
+    """Attempt to bring focus back to the most recent ButtonPad window."""
+    try:
+        root = globals().get("_last_root")
+        if root is not None and hasattr(root, "winfo_exists") and root.winfo_exists():
+            try:
+                root.lift()
+            except Exception:
+                pass
+            try:
+                root.focus_force()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+def alert(text: str = "", title: str = "PyMsgBox", button: str = "OK") -> str:  # type: ignore[override]
+    result = _pymsgbox_alert(text=text, title=title, button=button)
+    _refocus_root()
+    return result
+
+def confirm(text: str = "", title: str = "PyMsgBox", buttons: Union[str, Sequence[str]] = ("OK", "Cancel")) -> str:  # type: ignore[override]
+    result = _pymsgbox_confirm(text=text, title=title, buttons=buttons)
+    _refocus_root()
+    return result
+
+def prompt(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "") -> Optional[str]:  # type: ignore[override]
+    result = _pymsgbox_prompt(text=text, title=title, default=default)
+    _refocus_root()
+    return result
+
+def password(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "", mask: str = "*") -> Optional[str]:  # type: ignore[override]
+    result = _pymsgbox_password(text=text, title=title, default=default, mask=mask)
+    _refocus_root()
+    return result
 
 
 
@@ -324,6 +368,11 @@ class ButtonPad:
         self.root.configure(bg=self.window_bg)
         self.root.resizable(resizable, resizable)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        # Remember last root for post-dialog refocus
+        try:
+            globals()["_last_root"] = self.root
+        except Exception:
+            pass
 
         # Optional status bar (created on-demand when status_bar is set)
         self._status_frame = None

@@ -57,7 +57,7 @@ def main() -> None:
         title="Peg Solitaire",
         resizable=False,
         border=8,
-        status_bar=f"Pegs: {peg_count_initial}",
+        status_bar=f"Pegs remaining: {peg_count_initial}",
         menu={
             "Game": {
                 "New Game": (lambda: noop_new_game(), "Cmd+N"),
