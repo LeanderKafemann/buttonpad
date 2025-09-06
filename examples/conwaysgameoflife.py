@@ -1,20 +1,8 @@
 from __future__ import annotations
 
-# Conway's Game of Life using ButtonPad
-# - 32 x 32 clickable cells (buttons)
-# - 33rd row: one play/pause button spanning all 32 columns
-# - Off color: dark blue; On color: white
-# - Starts paused (▶). Click cells to toggle; click the big button to play/pause.
-
-import random
+import random, buttonpad
 from typing import List, Tuple
 
-try:
-	import buttonpad
-except Exception:
-	import ButtonPad as buttonpad  # type: ignore
-
-TITLE = "Conway's Game of Life"
 COLS = 20
 ROWS = 20  # cell rows (a control row is added below)
 
@@ -23,11 +11,6 @@ if COLS < 4:
 	COLS = 4
 
 # UI
-CELL_W = 20
-CELL_H = 20
-HGAP = 0
-VGAP = 0
-BORDER = 10
 WINDOW_BG = "#0e1220"  # dark backdrop
 OFF_BG = "#0b1a3b"     # dark blue (off)
 ON_BG = "#ffffff"      # white (on)
@@ -77,12 +60,12 @@ def main() -> None:
 	layout = build_layout()
 	pad = buttonpad.ButtonPad(
 		layout=layout,
-		cell_width=CELL_W,
-		cell_height=CELL_H,
-		h_gap=HGAP,
-		v_gap=VGAP,
-		border=BORDER,
-		title=TITLE,
+		cell_width=20,
+		cell_height=20,
+		h_gap=0,
+		v_gap=0,
+		border=10,
+		title="Conway's Game of Life",
 		default_bg_color=OFF_BG,
 		default_text_color=TEXT_COLOR,
 		window_color=WINDOW_BG,

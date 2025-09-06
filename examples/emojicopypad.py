@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-# Emoji Category Pad: 8x5 grid (top row = categories, 4x8 emoji grid below).
-# - Top row buttons have a slightly darker gray background and tooltips with category names.
-# - Clicking a category repopulates the bottom 4x8 with that category's emoji.
-# - Clicking any emoji copies it to the clipboard (pyperclip if available; Tk clipboard fallback).
-
 from typing import Dict, List, Sequence
 import sys
 import tkinter.font as tkfont
