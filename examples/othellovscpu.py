@@ -8,7 +8,10 @@ from __future__ import annotations
 # - CPU replies automatically
 # - When no moves for either side, the winner's color slowly flashes for a few seconds, then the board resets
 
-import buttonpad
+try:
+    import buttonpad
+except Exception:
+    import ButtonPad as buttonpad  # type: ignore
 from typing import List, Tuple, Optional
 
 TITLE = "Othello (vs CPU)"
@@ -131,6 +134,7 @@ def main() -> None:
         default_text_color=TEXT_DEFAULT,
         window_color=WINDOW_BG,
         resizable=True,
+        status_bar="White: 2  Black: 2",
     )
 
     board: List[List[int]] = [[EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
@@ -147,6 +151,14 @@ def main() -> None:
         else:
             el.background_color = BLACK_BG
 
+    def update_status() -> None:
+        wcnt = sum(1 for row in board for v in row if v == WHITE)
+        bcnt = sum(1 for row in board for v in row if v == BLACK)
+        try:
+            pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
+        except Exception:
+            pass
+
     def update_ui(show_hints: bool = True) -> None:
         # Apply backgrounds according to board; clear text; optionally add hints for human
         for y in range(SIZE):
@@ -162,6 +174,7 @@ def main() -> None:
                 el.text = HINT_CHAR
                 el.text_color = HINT_COLOR
                 el.font_size = SYMBOL_FONT_SIZE
+        update_status()
 
     def reset_game() -> None:
         for y in range(SIZE):
@@ -268,6 +281,7 @@ def main() -> None:
             pad[x, y].font_size = SYMBOL_FONT_SIZE  # type: ignore[index]
 
     reset_game()
+    update_status()
     pad.run()
 
 

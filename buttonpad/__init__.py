@@ -17,7 +17,6 @@ import warnings
 
 # --- Optional macOS support for colorable buttons ---
 try:
-    # pip install tkmacosx
     from tkmacosx import Button as MacButton  # type: ignore
 except Exception:
     MacButton = None  # fallback to tk.Button when unavailable

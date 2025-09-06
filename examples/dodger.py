@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 """
-Dodger: 20x20 grid of text labels. You are a highlighted cell starting near the center.
+Dodger: 20x20 original concept adapted.
+- Grid now omits the last visible row for scoring; score & high score shown in status bar.
 - Move with Arrow Keys or WASD. No wrap-around.
-- Hazards stream in from edges toward the opposite side and are shown by red background cells.
-- Bottom-right cell shows your score, which increments while you survive.
-- On collision, a Game Over alert shows; press OK to restart.
+- Hazards stream in from edges toward the opposite side as red background cells.
+- Collision triggers Game Over dialog and restart. High score resets only when program exits.
 """
 
 import random
@@ -17,7 +17,7 @@ except Exception:  # fallback for local dev
     import ButtonPad as buttonpad  # type: ignore
 
 COLS = 21
-ROWS = 21
+ROWS = 20  # removed last row of widgets; scoring now in status bar
 TITLE = "Dodger"
 
 # UI sizing/colors
@@ -33,7 +33,6 @@ HAZARD_BG = "#ff5a5a"   # red background for hazards
 TICK_MS = 140  # game tick interval
 SPAWN_PROB_PER_TICK = 0.35  # chance to spawn one hazard each tick
 
-ScorePos = (COLS - 1, ROWS - 1)
 CenterBand = range(COLS // 2 - 2, COLS // 2 + 2 + 1)  # 5x5-ish band around center
 
 
@@ -55,6 +54,7 @@ def main() -> None:
         title=TITLE,
         window_color=WINDOW_BG,
         resizable=True,
+        status_bar="Score: 0  High: 0",
     )
 
     state: Dict[str, object] = {
@@ -62,6 +62,7 @@ def main() -> None:
         "hazards": [],  # list of dicts {x,y,dx,dy}
         "hazard_set": set(),  # set of (x,y) for quick collision checks
         "score": 0,
+        "high_score": 0,
         "running": False,
         "after_id": None,
     }
@@ -69,8 +70,6 @@ def main() -> None:
     # --- helpers to read/update UI ---
     def set_hazard_bg(x: int, y: int) -> None:
         # Color the cell background to indicate a hazard; leave text empty
-        if (x, y) == ScorePos:
-            return
         el = pad[x, y]
         el.text = ""
         try:
@@ -79,8 +78,6 @@ def main() -> None:
             pass
 
     def clear_cell_visual(x: int, y: int) -> None:
-        if (x, y) == ScorePos:
-            return
         el = pad[x, y]
         el.text = ""
         try:
@@ -100,19 +97,18 @@ def main() -> None:
         # restore to normal background
         clear_cell_visual(px, py)
 
-    def update_score_label() -> None:
-        el = pad[ScorePos]
-        el.background_color = WINDOW_BG
-        el.text_color = "black"
-        el.text = f"Score: {state['score']}"
+    def update_status_bar() -> None:
+        try:
+            pad.status_bar = f"Score: {state['score']}  High: {state['high_score']}"
+        except Exception:
+            pass
 
     # --- game control ---
     def reset_board_visuals() -> None:
         for y in range(ROWS):
             for x in range(COLS):
-                if (x, y) != ScorePos:
-                    clear_cell_visual(x, y)
-        update_score_label()
+                clear_cell_visual(x, y)
+        update_status_bar()
 
     def start_game() -> None:
         # cancel any prior tick
@@ -136,8 +132,7 @@ def main() -> None:
         while True:
             sx = random.choice(list(CenterBand))
             sy = random.choice(list(CenterBand))
-            if (sx, sy) != ScorePos:
-                break
+            break  # any center band cell okay now
         state["player"] = {"x": sx, "y": sy}
         draw_player(sx, sy)
         schedule_next_tick()
@@ -182,8 +177,8 @@ def main() -> None:
             y = ROWS - 1
             dx, dy = 0, -1
 
-        # avoid score cell and player cell
-        if (x, y) == ScorePos or (x == px and y == py):
+        # avoid spawning atop player
+        if (x == px and y == py):
             return
 
         hazards: List[Dict[str, int]] = state["hazards"]  # type: ignore[assignment]
@@ -219,9 +214,7 @@ def main() -> None:
             # off-grid => drop
             if nx < 0 or nx >= COLS or ny < 0 or ny >= ROWS:
                 continue
-            # never enter the score cell
-            if (nx, ny) == ScorePos:
-                continue
+            # no special reserved cell now
             # collision with player?
             if nx == px and ny == py:
                 return True
@@ -245,7 +238,9 @@ def main() -> None:
             return
         # score
         state["score"] = int(state["score"]) + 1
-        update_score_label()
+        if state["score"] > state["high_score"]:  # type: ignore[operator]
+            state["high_score"] = state["score"]
+        update_status_bar()
 
         # maybe spawn
         if random.random() < SPAWN_PROB_PER_TICK:
@@ -275,9 +270,7 @@ def main() -> None:
         # don't move if clamped to same position
         if nx == px and ny == py:
             return
-        # do not move onto score cell
-        if (nx, ny) == ScorePos:
-            return
+    # no reserved score cell constraint
         # collision if moving into hazard
         if (nx, ny) in state["hazard_set"]:  # type: ignore[operator]
             game_over()

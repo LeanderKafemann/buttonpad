@@ -43,6 +43,7 @@ def main() -> None:
         default_text_color="white",
         window_color=WINDOW_BG,
         resizable=True,
+        status_bar="White: 2  Black: 2",
     )
 
     # 0 empty, 1 white, 2 black
@@ -75,6 +76,16 @@ def main() -> None:
         for y in range(SIZE):
             for x in range(SIZE):
                 set_cell_color(x, y, board[y][x])
+        update_status()
+
+    def update_status() -> None:
+        # Count discs and update status bar
+        wcnt = sum(1 for row in board for v in row if v == 1)
+        bcnt = sum(1 for row in board for v in row if v == 2)
+        try:
+            pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
+        except Exception:
+            pass
 
     def find_flips(p: int, x: int, y: int) -> List[Tuple[int, int]]:
         if board[y][x] != 0:

@@ -67,7 +67,7 @@ def main() -> None:
         title=TITLE,
         window_color=WINDOW_BG,
         resizable=True,
-        status_bar="Score: 0",
+        status_bar="Score: 0  High score: 0",
     )
 
     state: Dict[str, object] = {
@@ -76,6 +76,7 @@ def main() -> None:
         "hazard_set": set(),  # set[(x,y)]
         "goal": GOAL_B,  # initial goal at bottom middle
         "score": 0,
+        "high_score": 0,
         "running": False,
         "after_id": None,
     }
@@ -114,7 +115,7 @@ def main() -> None:
 
     def update_status() -> None:
         try:
-            pad.status_bar = f"Score: {state['score']}"
+            pad.status_bar = f"Score: {state['score']}  High score: {state['high_score']}"
         except Exception:
             pass
 
@@ -271,6 +272,9 @@ def main() -> None:
         cur_goal: Tuple[int, int] = state["goal"]  # type: ignore[assignment]
         if (nx, ny) == cur_goal:
             state["score"] = int(state["score"]) + 1
+            # update high score
+            if state["score"] > state["high_score"]:  # type: ignore[operator]
+                state["high_score"] = state["score"]
             update_status()
             # toggle goal to the opposite coordinate
             new_goal = GOAL_A if cur_goal == GOAL_B else GOAL_B
