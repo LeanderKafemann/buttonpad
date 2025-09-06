@@ -2,13 +2,17 @@
 
 ButtonPad lets you declare a grid of buttons, labels, and text boxes using a compact, CSV-like layout string and control it with simple Python callbacks. It’s built on the Tkinter standard library and works on Windows, macOS, and Linux. On macOS, it can optionally use tkmacosx for better button color support.
 
-• Pure-Python, no custom widgets to learn — just layout + callbacks
-• CSV-like layout string with auto-merge of identical adjacent cells
-• Per-cell click handlers, hover enter/exit, and tooltips
-• Keyboard mapping for triggering cells
+Key features:
+• Pure-Python, no custom widget subclasses you must learn — just layout + callbacks
+• CSV-like layout string with auto-merge of identical adjacent cells (blank/whitespace-only lines are ignored)
+• Per-cell click handlers plus hover enter/exit callbacks and tooltips
+• Global key mapping AND per-button hotkeys (BPButton.hotkey)
+• Optional status bar (set/get via pad.status_bar) with color customization
+• Optional menubar definition with automatic accelerator binding
 • Easy runtime updates and direct element access via pad[x, y]
 • Adjustable per-column/row sizing, gaps, margin, and resizable windows
 • Re-exports pymsgbox dialogs: alert, confirm, prompt, password
+• Non-rectangular layouts are detected and warned about with row cell counts
 
 
 ## Quick start
@@ -116,6 +120,8 @@ Instance methods and properties:
 - `update(new_layout: str)` — rebuild the grid from a new layout string.
 - `pad[x, y]` — index into the grid to get an element wrapper at column x, row y.
 - `map_key(keysym: str, x: int, y: int)` — press a key to trigger a cell (e.g., `"1"`, `"a"`, `"Escape"`).
+- Status bar: `status_bar` (string or None) plus `status_bar_background_color`, `status_bar_text_color`.
+- Menu: assign a nested dict to `menu` to build a menubar with optional accelerators.
 - Global hooks: `on_pre_click(element)`, `on_post_click(element)` called around every click.
 
 Re-exported dialogs (from pymsgbox): `alert`, `confirm`, `prompt`, `password`.
@@ -132,6 +138,8 @@ All wrappers expose:
 - `on_click: Callable[[element, x, y], None] | None` — click handler.
 - `on_enter` / `on_exit` — hover handlers with the same signature.
 - `widget` — the underlying Tk widget, for advanced customization.
+Specific additions:
+- `BPButton.hotkey` property: assign a string (keysym) or tuple of strings to create independent hotkeys (case-insensitive). Reassigning replaces prior hotkeys.
 
 Specifics:
 - `BPButton` — click-focused element; created for unquoted tokens.
@@ -167,5 +175,7 @@ Play,Play,Play
 
 ## Examples
 
-See the `examples/` folder for small apps built with ButtonPad: games, utilities, and demos of merged controls and dynamic updates.
+See the `examples/` folder for small apps built with ButtonPad: games (Connect Four, Simon, Lights Out, Tic Tac Toe, 2048, etc.), utilities, and demos of merged controls, menus, status bars, hover callbacks, and hotkeys.
+
+There is also a `launcher.py` script that presents a ButtonPad-based menu to run the included examples.
 

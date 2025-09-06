@@ -102,10 +102,17 @@ def main() -> None:
         default_text_color=TEXT_COLOR,
         window_color=WINDOW_BG,
         resizable=True,
+        status_bar="Moves: 0",
     )
 
     board: List[List[int]] = [[0 for _ in range(COLS)] for _ in range(ROWS)]
     solving = {"active": False}
+    move_state = {"count": 0}
+    def update_status() -> None:
+        try:
+            pad.status_bar = f"Moves: {move_state['count']}"
+        except Exception:
+            pass
     gen_moves: List[Tuple[int, int]] = []  # sequence of blank moves used to generate board (dx, dy)
     user_moves: List[Tuple[int, int]] = []  # sequence of blank moves the user made since generation
 
@@ -145,6 +152,39 @@ def main() -> None:
             update_ui()
             return True
         return False
+    # Keyboard movement support (arrow keys & WASD) moving TILES, not the blank.
+    # Concept: Pressing Up moves the tile ABOVE the blank up (blank moves down internally).
+    def key_slide(tile_dx: int, tile_dy: int) -> None:
+        if solving["active"]:
+            return
+        # Tile movement direction (tile_dx, tile_dy); blank must be opposite side.
+        bx, by = find_blank()
+        tx, ty = bx - tile_dx, by - tile_dy  # tile position that will move into blank
+        if 0 <= tx < COLS and 0 <= ty < ROWS:
+            # Perform swap: tile moves (tile_dx, tile_dy); blank displacement is opposite
+            board[by][bx], board[ty][tx] = board[ty][tx], board[by][bx]
+            # Record blank displacement (for solve undo logic) which is (-tile_dx, -tile_dy)
+            user_moves.append((-tile_dx, -tile_dy))
+            move_state["count"] += 1
+            update_status()
+            update_ui()
+
+    # Map keys to tile movement vectors
+    keymap_tiles = {
+        "Up": (0, -1),
+        "w": (0, -1),
+        "Down": (0, 1),
+        "s": (0, 1),
+        "Left": (-1, 0),
+        "a": (-1, 0),
+        "Right": (1, 0),
+        "d": (1, 0),
+    }
+    for ks, (tdx, tdy) in keymap_tiles.items():
+        try:
+            pad.root.bind_all(f"<KeyPress-{ks}>", lambda e, tdx=tdx, tdy=tdy: key_slide(tdx, tdy))
+        except Exception:
+            pass
 
     def try_move(x: int, y: int) -> None:
         if solving["active"]:
@@ -157,6 +197,8 @@ def main() -> None:
                 dx, dy = x - nx, y - ny
                 board[ny][nx], board[y][x] = board[y][x], board[ny][nx]
                 user_moves.append((dx, dy))
+                move_state["count"] += 1
+                update_status()
                 update_ui()
                 return
 
@@ -206,6 +248,8 @@ def main() -> None:
                 board[y][x] = nums[y * COLS + x]
         gen_moves.clear()
         user_moves.clear()
+        move_state["count"] = 0
+        update_status()
         update_ui()
         # Perform random blank moves, avoiding immediate backtrack
         last = (0, 0)
@@ -240,6 +284,8 @@ def main() -> None:
                 move_blank(dx, dy)
                 gen_moves.append((dx, dy))
                 last = (dx, dy)
+        # Shuffling doesn't count as moves; status already reset.
+        update_status()
 
     # Wire handlers for puzzle grid and control row
     for y in range(ROWS):

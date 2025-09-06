@@ -50,8 +50,9 @@ CLICK_FLASH_MS = 180
 
 
 def build_layout() -> str:
-    # Two rows of two independent buttons
-    row = ",".join(["`"] * COLS)
+    # Two rows of two independent LABELS (blank). Use `"" to create a no-merge blank BPLabel.
+    # Backtick prevents auto-merge; "" (quoted empty string) forces label kind instead of button.
+    row = ",".join(['`""'] * COLS)
     return "\n".join([row for _ in range(ROWS)])
 
 
@@ -73,17 +74,39 @@ def main() -> None:
         window_color=WINDOW_BG,
         resizable=True,
     )
+    # Initialize status bar (Score tracking)
+    try:
+        pad.status_bar = "Score: 0  High: 0"
+    except Exception:
+        pass
 
-    # Apply per-cell base colors and clear text
+    # Apply per-cell base colors, label text (Q W A S), subtle text colors, and hotkeys
+    label_chars = ["Q", "W", "A", "S"]  # order: (0,0) (1,0) (0,1) (1,1)
+    subtle_text_colors = [
+        "#146c3b",  # darker green
+        "#82271d",  # darker red
+        "#1a5078",  # darker blue
+        "#7d6a10",  # muted yellow/brown
+    ]
+    keysyms = ["q", "w", "a", "s"]
     for y in range(ROWS):
         for x in range(COLS):
             idx = y * COLS + x
             el = pad[x, y]  # type: ignore[index]
             el.background_color = BASE_COLORS[idx]
-            el.text = ""
+            el.text = label_chars[idx]
+            try:
+                el.text_color = subtle_text_colors[idx]
+            except Exception:
+                pass
+            # Map hotkey to this cell (labels don't have .hotkey property)
+            try:
+                pad.map_key(keysyms[idx], x, y)
+            except Exception:
+                pass
 
     sequence: List[int] = []
-    state = {"busy": False, "expect": 0, "accept": False}
+    state = {"busy": False, "expect": 0, "accept": False, "timer_id": None, "score": 0, "high_score": 0}
 
     def set_lit(idx: int, lit: bool) -> None:
         x, y = idx % COLS, idx // COLS
@@ -122,11 +145,22 @@ def main() -> None:
         sequence.append(random.choice(essential_indices))
         pad.root.after(BETWEEN_ROUNDS_MS, playback_sequence)
 
+    def _update_status_bar() -> None:
+        try:
+            pad.status_bar = f"Score: {state['score']}  High: {state['high_score']}"
+        except Exception:
+            pass
+        # Only reschedule while game is active (sequence exists)
+        try:
+            state["timer_id"] = pad.root.after(500, _update_status_bar)
+        except Exception:
+            pass
+
     def game_over() -> None:
         # Report the last fully completed sequence length
         length_achieved = max(0, len(sequence) - 1)
         try:
-            buttonpad.alert(f"Game Over\nYou reached a sequence length of {length_achieved}")
+            buttonpad.alert(f"Game Over\nScore: {length_achieved}")
         except Exception:
             pass
         new_game()
@@ -145,6 +179,11 @@ def main() -> None:
             # completed the whole sequence correctly -> extend
             if state["expect"] == len(sequence):
                 state["accept"] = False
+                # Completed current sequence -> increment score
+                state["score"] += 1
+                if state["score"] > state["high_score"]:
+                    state["high_score"] = state["score"]
+                _update_status_bar()
                 add_step_and_play()
         else:
             game_over()
@@ -155,10 +194,23 @@ def main() -> None:
             pad[x, y].on_click = on_cell_click  # type: ignore[index]
 
     def new_game() -> None:
+        # Cancel previous timer
+        if state.get("timer_id") is not None:
+            try:
+                pad.root.after_cancel(state["timer_id"])  # type: ignore[arg-type]
+            except Exception:
+                pass
+            state["timer_id"] = None
         sequence.clear()
         state["busy"] = False
         state["accept"] = False
         state["expect"] = 0
+        state["score"] = 0  # high_score persists across games in same run
+        try:
+            pad.status_bar = f"Score: 0  High: {state['high_score']}"
+        except Exception:
+            pass
+        _update_status_bar()  # initial update
         add_step_and_play()
 
     # Start
