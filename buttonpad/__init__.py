@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any, TYPE_CHECKING
 import tkinter as tk
 from pymsgbox import (
+    # Import with different names so they can be wrapped for refocusing feature.
     alert as _pymsgbox_alert,
     confirm as _pymsgbox_confirm,
     prompt as _pymsgbox_prompt,
@@ -43,7 +44,7 @@ BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
 _last_root: Optional[tk.Tk] = None
 
 def _refocus_root() -> None:
-    """Attempt to bring focus back to the most recent ButtonPad window."""
+    """Attempt to bring focus back to the most recent ButtonPad window. This is used after PyMsgBox dialogs are closed."""
     try:
         root = globals().get("_last_root")
         if root is not None and hasattr(root, "winfo_exists") and root.winfo_exists():
@@ -59,34 +60,32 @@ def _refocus_root() -> None:
         pass
 
 def alert(text: str = "", title: str = "PyMsgBox", button: str = "OK") -> str:  # type: ignore[override]
+    """Wraps the PyMsgBox alert() function. Displays a dialogue box with text and an OK button."""
     result = _pymsgbox_alert(text=text, title=title, button=button)
     _refocus_root()
     return result
 
 def confirm(text: str = "", title: str = "PyMsgBox", buttons: Union[str, Sequence[str]] = ("OK", "Cancel")) -> str:  # type: ignore[override]
+    """Wraps the PyMsgBox confirm() function. Displays a dialogue box with text and OK/Cancel buttons."""
     result = _pymsgbox_confirm(text=text, title=title, buttons=buttons)
     _refocus_root()
     return result
 
 def prompt(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "") -> Optional[str]:  # type: ignore[override]
+    """Wraps the PyMsgBox prompt() function. Displays a dialogue box with text and an input field."""
     result = _pymsgbox_prompt(text=text, title=title, default=default)
     _refocus_root()
     return result
 
 def password(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "", mask: str = "*") -> Optional[str]:  # type: ignore[override]
+    """Wraps the PyMsgBox password() function. Displays a dialogue box with text and a masked password input field."""
     result = _pymsgbox_password(text=text, title=title, default=default, mask=mask)
     _refocus_root()
     return result
 
 
-
-
 class _BPBase:
-    """
-    Base wrapper for a Tk widget. Public attributes:
-      - widget: the underlying tkinter widget
-      - text:   live UI text (StringVar-backed when supported)
-    """
+    """Base class for the BPButton, BPTextBox, and BPLabel classes."""
 
     def __init__(self, widget: tk.Widget, text: str = ""):
         self.widget = widget
@@ -100,42 +99,47 @@ class _BPBase:
         self._textvar = tk.StringVar(value=text)
         self._uses_textvariable = False
         if isinstance(widget, tk.Label) or isinstance(widget, tk.Entry):
+            # Attempt to use a textvariable for live updates
             try:
                 self.widget.configure(textvariable=self._textvar)
                 self._uses_textvariable = True
             except tk.TclError:
                 self._uses_textvariable = False
         if not self._uses_textvariable:
+            # Fallback for widgets without textvariable (e.g. tkmacosx buttons)
             try:
                 self.widget.configure(text=text)
             except tk.TclError:
-                pass  # some widgets simply don't have text
+                assert False # For now, all widgets should support text configuration (BPButton, BPTextBox, and BPLabel) so this should never happen.
 
+        # Setting the background color, default to system default color.
         try:
             self._background_color = widget.cget("bg")
         except tk.TclError:
             self._background_color = "SystemButtonFace"
 
+        # Setting the text color, default to black.
         try:
             self._text_color = widget.cget("fg")
         except tk.TclError:
             self._text_color = "black"
 
         # Callback hooks (ButtonPad will invoke these)
-        self._on_click = None
-        self.on_enter = None
-        self.on_exit = None
+        self._on_click: BPCallback = None
+        self._on_enter: BPCallback = None
+        self._on_exit: BPCallback = None
 
         # Filled in by ButtonPad when placed
         self._pos = (0, 0)
         # Tooltip data (managed by ButtonPad on hover)
-        self._tooltip_text = None
-        self._tooltip_after = None
-        self._tooltip_window = None
+        self._tooltip_text: Optional[str] = None
+        self._tooltip_after: Optional[int] = None
+        self._tooltip_window: Optional[tk.Toplevel] = None
 
     # ----- text (robust across tk / tkmacosx) -----
     @property
     def text(self) -> str:
+        """The text displayed by the widget."""
         if self._uses_textvariable:
             try:
                 self._text = self._textvar.get()
@@ -232,6 +236,24 @@ class _BPBase:
     @on_click.setter
     def on_click(self, func: BPCallback) -> None:
         self._on_click = func
+
+    # ----- unified enter handler -----
+    @property
+    def on_enter(self) -> BPCallback:  # type: ignore[override]
+        return self._on_enter
+
+    @on_enter.setter
+    def on_enter(self, func: BPCallback) -> None:  # type: ignore[override]
+        self._on_enter = func
+
+    # ----- unified exit handler -----
+    @property
+    def on_exit(self) -> BPCallback:  # type: ignore[override]
+        return self._on_exit
+
+    @on_exit.setter
+    def on_exit(self, func: BPCallback) -> None:  # type: ignore[override]
+        self._on_exit = func
 
 
 
@@ -378,41 +400,6 @@ class _Spec:
 
 
 class ButtonPad:
-    """
-    ButtonPad(
-        configuration: str,
-        cell_width: int | Sequence[int] = 60,
-        cell_height: int | Sequence[int] = 60,
-        horizontal_gap: int = 0,
-        vertical_gap: int = 0,
-        window_background_color: str = '#f0f0f0',
-        default_button_background_color: str = '#f0f0f0',
-        default_button_text_color: str = 'black',
-        title: str = 'ButtonPad App',
-        resizable: bool = True,
-        border: int = 0,
-    )
-
-    - Column widths / row heights are owned by the GRID:
-        * If an int is given, all columns (or rows) get that size.
-        * If a sequence of ints is given, its length must match the number of
-          columns (or rows) parsed from the configuration).
-    - `horizontal_gap` / `vertical_gap` are internal spacing between cells.
-    - `border` is the outer margin between the grid and the window edges.
-    - Global hooks:
-        * on_pre_click(element)
-        * on_post_click(element)
-      …fired around every click (mouse or keyboard).
-    - Keyboard mapping:
-        * map_key("1", 0, 0)  # pressing key "1" triggers cell at (x=0, y=0)
-    - Indexing:
-        * Access elements with Cartesian order: pad[x, y]
-          (x is the column, y is the row).
-    - Callback signatures (user-supplied):
-        * element.on_click   -> (element, x, y)
-        * element.on_enter   -> (element, x, y)
-        * element.on_exit    -> (element, x, y)
-    """
     def __init__(
         self,
         layout: str,
@@ -933,6 +920,24 @@ class ButtonPad:
     def _build_from_config(self, configuration: str) -> None:
         grid_specs = self._parse_configuration(configuration)
 
+        # Detect non-rectangular layouts (rows with differing numbers of cells)
+        row_lengths = [len(r) for r in grid_specs]
+        self._row_cell_counts = row_lengths  # expose for introspection/debug
+        if row_lengths:
+            max_len = max(row_lengths)
+            if any(l != max_len for l in row_lengths):
+                try:
+                    warnings.warn(
+                        (
+                            "[ButtonPad] Non-rectangular layout detected. "
+                            f"Row cell counts: {row_lengths} (max columns = {max_len}). "
+                            "Shorter rows will leave unused empty space."
+                        ),
+                        RuntimeWarning,
+                    )
+                except Exception:
+                    pass
+
         rows = len(grid_specs)
         cols = max((len(r) for r in grid_specs), default=0)
 
@@ -1158,7 +1163,11 @@ class ButtonPad:
     # ----- config parsing -----
     def _parse_configuration(self, configuration: str) -> List[List[Optional[_Spec]]]:
         rows: List[List[Optional[_Spec]]] = []
-        for rline in configuration.strip("\n").splitlines():
+        # Iterate raw lines; ignore any that are blank or only whitespace so layout authors
+        # can add visual spacing without creating empty rows.
+        for rline in configuration.splitlines():
+            if not rline.strip():
+                continue  # skip blank/whitespace-only line
             raw_items = rline.split(",")
             row: List[Optional[_Spec]] = []
             for token in raw_items:
