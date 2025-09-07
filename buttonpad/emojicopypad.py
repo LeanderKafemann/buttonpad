@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Emoji Category Copy Pad.
+"""Emoji Copy Pad.
 
 Purpose: Quickly browse groups of emojis and copy one to the system
 clipboard with a single click. The top row contains category buttons; the
@@ -236,7 +236,7 @@ def main() -> None:
         h_gap=4,
         v_gap=4,
         border=10,
-        title="Emoji Category Pad",
+        title="Emoji Copy to Clipboard Pad",
         default_bg_color=BOTTOM_BG,
         default_text_color="black",
         window_color="#f0f0f0",
