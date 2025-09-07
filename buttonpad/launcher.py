@@ -11,7 +11,7 @@ import buttonpad
 ROWS = 5
 COLS = 6  # 30 cells total
 
-EXAMPLES_DIR = Path(__file__).parent / 'examples'
+EXAMPLES_DIR = Path(__file__).parent
 
 # (Label, filename) pairs (relative to examples folder). Remaining cells blank.
 EXAMPLES: List[Tuple[str, str]] = [

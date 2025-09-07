@@ -150,7 +150,7 @@ def main() -> None:
         v_gap=4,
         default_bg_color=BTN_BG,
         default_text_color=BTN_FG,
-        title="Connect Four (ButtonPad)",
+        title="Connect Four",
         border=10,
     )
     board = {(c, r): 0 for c in range(COLS) for r in range(ROWS)}
