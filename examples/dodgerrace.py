@@ -31,14 +31,6 @@ except Exception:
 # Grid
 COLS = 21
 ROWS = 21
-TITLE = "Dodgerace"
-
-# UI sizing/colors
-CELL_W = 34
-CELL_H = 34
-HGAP = 2
-VGAP = 2
-BORDER = 8
 WINDOW_BG = "#f0f0f0"
 PLAYER_BG = "#2b78ff"
 HAZARD_BG = "#ff5a5a"
@@ -301,12 +293,12 @@ def main() -> None:
     layout = build_label_grid(COLS, ROWS)
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=34,
+        cell_height=34,
+        h_gap=2,
+        v_gap=2,
+        border=8,
+        title="Dodgerace",
         window_color=WINDOW_BG,
         resizable=True,
         status_bar="Score: 0  High score: 0",

@@ -20,16 +20,8 @@ try:
 except Exception:
     import ButtonPad as buttonpad  # type: ignore
 
-TITLE = "Pixel Editor"
 COLS = 24
 ROWS = 24
-
-# UI
-CELL_W = 22
-CELL_H = 22
-HGAP = 0
-VGAP = 0
-BORDER = 10
 WINDOW_BG = "#f0f0f0"
 
 # Basic color palette (cycle order)
@@ -56,12 +48,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=22,
+        cell_height=22,
+        h_gap=0,
+        v_gap=0,
+        border=10,
+        title="Pixel Editor",
         default_bg_color=PALETTE[0],
         default_text_color="black",
         window_color=WINDOW_BG,

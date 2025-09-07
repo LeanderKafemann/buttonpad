@@ -5,7 +5,6 @@ Implementation overview for beginners:
   * Board stored in a dictionary mapping (x,y) -> symbol ("X" / "O" / "").
   * We check victory after each move by enumerating 8 possible winning lines.
   * A simple state dict tracks whose turn it is and cumulative win/tie counts.
-This version keeps helper functions at module scope (instead of nested in main()).
 """
 import buttonpad
 from typing import List, Optional, Tuple, Dict
@@ -13,11 +12,6 @@ from typing import List, Optional, Tuple, Dict
 SIZE = 3
 EMPTY_BG = "#f0f0f0"
 TEXT_COLOR = "#222222"
-
-def build_layout() -> str:
-    """Create SIZE x SIZE grid of independent label cells."""
-    row = ",".join(["`"] * SIZE)
-    return "\n".join([row for _ in range(SIZE)])
 
 BoardType = Dict[Tuple[int, int], str]
 
@@ -112,9 +106,10 @@ def handle_click(el, x: int, y: int) -> None:
 def main() -> None:
     """Set up window, initialize state dictionary, wire event handlers."""
     global pad, board, state
-    layout = build_layout()
     pad = buttonpad.ButtonPad(
-        layout=layout,
+        layout="""`,`,`
+                  `,`,`
+                  `,`,`""",
         cell_width=72,
         cell_height=72,
         h_gap=4,

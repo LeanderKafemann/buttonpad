@@ -24,16 +24,8 @@ try:
 except Exception:
     import ButtonPad as buttonpad  # type: ignore
 
-TITLE = "15-Puzzle"
 COLS = 4
 ROWS = 4  # puzzle rows (control row added separately)
-
-# UI
-CELL_W = 72
-CELL_H = 72
-HGAP = 6
-VGAP = 6
-BORDER = 12
 WINDOW_BG = "#f5f5f5"
 TILE_BG = "#e0e0e0"
 EMPTY_BG = "#ffffff"
@@ -111,12 +103,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=72,
+        cell_height=72,
+        h_gap=6,
+        v_gap=6,
+        border=12,
+        title="15-Puzzle",
         default_bg_color=TILE_BG,
         default_text_color=TEXT_COLOR,
         window_color=WINDOW_BG,

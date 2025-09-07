@@ -20,20 +20,14 @@ SIZE = 3
 EMPTY_BG = "#f0f0f0"
 TEXT_COLOR = "#222222"
 
-Coord = Tuple[int, int]
-
-
-def build_layout() -> str:
-    """Return SIZE x SIZE grid of independent label cells."""
-    row = ",".join(["`"] * SIZE)
-    return "\n".join([row for _ in range(SIZE)])
+XYCoordType = Tuple[int, int]
 
 
 BoardType = Dict[Tuple[int, int], str]
 
 def winner(board: BoardType) -> Optional[str]:
     """Return 'X' or 'O' if a winning line exists; else None."""
-    lines: List[List[Coord]] = []
+    lines: List[List[XYCoordType]] = []
     for i in range(SIZE):
         lines.append([(x, i) for x in range(SIZE)])
         lines.append([(i, y) for y in range(SIZE)])
@@ -55,17 +49,17 @@ def board_full(board: BoardType) -> bool:
     return True
 
 
-def empty_cells(board: BoardType) -> List[Coord]:
+def empty_cells(board: BoardType) -> List[XYCoordType]:
     """Return list of coordinates that are empty."""
     return [(x, y) for y in range(SIZE) for x in range(SIZE) if board[(x, y)] == ""]
 
 
-def choose_cpu_move(board: BoardType) -> Optional[Coord]:
+def choose_cpu_move(board: BoardType) -> Optional[XYCoordType]:
     """Return chosen coordinate for CPU using simple priority heuristic."""
     empties = empty_cells(board)
     if not empties:
         return None
-    def try_place(sym: str) -> Optional[Coord]:
+    def try_place(sym: str) -> Optional[XYCoordType]:
         for x, y in empties:
             board[(x, y)] = sym
             if winner(board) == sym:
@@ -156,9 +150,10 @@ def handle_click(el, x: int, y: int) -> None:
 def main() -> None:
     """Initialize window, board, and event handlers then start loop."""
     global pad, board, state
-    layout = build_layout()
     pad = buttonpad.ButtonPad(
-        layout=layout,
+        layout="""`,`,`
+                  `,`,`
+                  `,`,`""",
         cell_width=72,
         cell_height=72,
         h_gap=4,

@@ -22,10 +22,6 @@ from buttonpad import ButtonPad, BPButton, BPLabel, alert
 COLS = 7  # columns (top row has 7 buttons)
 ROWS = 6  # play rows beneath buttons; total grid rows = 1 + ROWS = 7
 
-# UI tuning
-BORDER = 10
-TITLE = "Connect Four (ButtonPad)"
-
 # Colors
 EMPTY_COLOR = "white"
 RED = "red"
@@ -154,8 +150,8 @@ def main() -> None:
         v_gap=4,
         default_bg_color=BTN_BG,
         default_text_color=BTN_FG,
-        title=TITLE,
-        border=BORDER,
+        title="Connect Four (ButtonPad)",
+        border=10,
     )
     board = {(c, r): 0 for c in range(COLS) for r in range(ROWS)}
     current = 1

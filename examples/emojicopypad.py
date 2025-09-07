@@ -35,16 +35,8 @@ except Exception:
     # Fallback for environments where it's installed with different casing
     import ButtonPad as buttonpad  # type: ignore
 
-TITLE = "Emoji Category Pad"
 COLS = 8
 ROWS = 5  # 1 category row + 4 emoji rows (total 8x5)
-
-# UI
-CELL_W = 48
-CELL_H = 48
-HGAP = 4
-VGAP = 4
-BORDER = 10
 TOP_BG = "#87b5ff"      # blue background for category buttons
 BOTTOM_BG = "#f3f3f3"
 
@@ -239,12 +231,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=48,
+        cell_height=48,
+        h_gap=4,
+        v_gap=4,
+        border=10,
+        title="Emoji Category Pad",
         default_bg_color=BOTTOM_BG,
         default_text_color="black",
         window_color="#f0f0f0",
