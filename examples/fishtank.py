@@ -1,10 +1,7 @@
 import random
 import sys
 from typing import Dict, List, Optional, Set, Tuple
-
-# Ensure local import when running from repo
-sys.path.insert(0, __file__.split('/examples/')[0])
-from ButtonPad import ButtonPad  # noqa: E402
+import buttonpad
 
 COLS = 16
 ROWS = 10
@@ -37,7 +34,7 @@ def build_empty_label_layout(cols: int, rows: int) -> str:
 def main() -> None:
     layout = build_empty_label_layout(COLS, ROWS)
 
-    bp = ButtonPad(
+    bp = buttonpad.ButtonPad(
         layout=layout,
         cell_width=40,
         cell_height=40,

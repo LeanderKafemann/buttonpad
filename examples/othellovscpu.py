@@ -8,21 +8,12 @@ from __future__ import annotations
 # - CPU replies automatically
 # - When no moves for either side, the winner's color slowly flashes for a few seconds, then the board resets
 
-try:
-    import buttonpad
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
+import buttonpad
 from typing import List, Tuple, Optional
 
-TITLE = "Othello (vs CPU)"
 SIZE = 8
 
 # UI
-CELL_W = 46
-CELL_H = 46
-HGAP = 2
-VGAP = 2
-BORDER = 12
 WINDOW_BG = "#6b4e2e"      # brown window
 BOARD_BG = "#2f6d2f"       # slightly dark green for cells
 WHITE_BG = "#ffffff"
@@ -124,12 +115,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=46,
+        cell_height=46,
+        h_gap=2,
+        v_gap=2,
+        border=12,
+        title="Othello (vs CPU)",
         default_bg_color=BOARD_BG,
         default_text_color=TEXT_DEFAULT,
         window_color=WINDOW_BG,
@@ -194,32 +185,22 @@ def main() -> None:
         except Exception:
             pass
 
-    def end_and_flash_winner() -> None:
-        # Count discs
+    def end_and_announce_winner() -> None:
+        # Count discs and announce result via alert, then reset after dialog.
         wcnt = sum(1 for row in board for v in row if v == WHITE)
         bcnt = sum(1 for row in board for v in row if v == BLACK)
-        if wcnt == bcnt:
-            # tie: flash between board green and both colors? Keep simple: alternate white/black
-            sequence = [WHITE_BG, BLACK_BG]
-        else:
-            winner_bg = WHITE_BG if wcnt > bcnt else BLACK_BG
-            sequence = [winner_bg, BOARD_BG]
-
         state["over"] = True
-        flashes = 10  # ~3 seconds at 300ms per toggle
-        interval_ms = 300
-
-        def step(i: int) -> None:
-            color = sequence[i % len(sequence)]
-            for el in cells:
-                el.background_color = color
-                el.text = ""
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
-            else:
-                pad.root.after(300, reset_game)
-
-        step(0)
+        if wcnt == bcnt:
+            msg = f"Tie game!\nWhite: {wcnt}  Black: {bcnt}"
+        elif wcnt > bcnt:
+            msg = f"White wins!\nWhite: {wcnt}  Black: {bcnt}"
+        else:
+            msg = f"Black wins!\nWhite: {wcnt}  Black: {bcnt}"
+        try:
+            buttonpad.alert(msg, title="Othello Result")
+        except Exception:
+            pass
+        reset_game()
 
     def place_and_flip(p: int, x: int, y: int) -> bool:
         flips = find_flips(board, p, x, y)
@@ -240,7 +221,7 @@ def main() -> None:
         elif any_move(board, p):
             state["turn"] = p  # opponent passes
         else:
-            end_and_flash_winner()
+            end_and_announce_winner()
             return
         update_ui(show_hints=(state["turn"] == WHITE))
         if state["turn"] == BLACK and not state["over"]:

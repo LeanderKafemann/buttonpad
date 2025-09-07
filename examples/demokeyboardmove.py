@@ -1,29 +1,12 @@
 from __future__ import annotations
 
-"""
-KeyboardMove: 8x8 grid where a blue cursor can be moved by clicks or arrow keys/WASD.
-- Start at (3, 3) with blue background.
-- Click a cell to move the cursor there.
-- Use arrow keys (Left/Right/Up/Down) or WASD to move with wrap-around.
-"""
-
 from typing import Tuple
+import buttonpad
 
-try:
-    import buttonpad
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
-
-TITLE = "Keyboard Move"
 COLS = 8
 ROWS = 8
 
 # UI
-CELL_W = 48
-CELL_H = 48
-HGAP = 4
-VGAP = 4
-BORDER = 8
 WINDOW_BG = "#0e1220"   # dark backdrop
 BTN_BG = "#1f2640"       # default button background
 BTN_FG = "#e6e6e6"       # default text color
@@ -40,12 +23,12 @@ def main() -> None:
     layout = build_layout(COLS, ROWS)
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=48,
+        cell_height=48,
+        h_gap=4,
+        v_gap=4,
+        border=8,
+        title="Keyboard Move Demo",
         default_bg_color=BTN_BG,
         default_text_color=BTN_FG,
         window_color=WINDOW_BG,

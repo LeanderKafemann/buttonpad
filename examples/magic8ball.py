@@ -19,17 +19,8 @@ try:
 except Exception:
     import ButtonPad as buttonpad  # type: ignore
 
-TITLE = "Magic 8-Ball"
 COLS = 5
 ROWS = 5
-
-# UI
-CELL_W = 120
-CELL_H = 120
-HGAP = 6
-VGAP = 6
-BORDER = 14
-WINDOW_BG = "#0b0b0b"
 
 # Colors
 BLACK = "#000000"
@@ -73,15 +64,15 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=100,
+        cell_height=100,
+        h_gap=6,
+        v_gap=6,
+        border=14,
+        title="Magic 8-Ball",
         default_bg_color=BLACK,
         default_text_color=WHITE,
-        window_color=WINDOW_BG,
+        window_color="#0b0b0b",
         resizable=True,
     )
 
@@ -112,7 +103,7 @@ def main() -> None:
         for x, y in all_cells():
             set_cell(x, y, BLACK, "", WHITE)
         cx, cy = CENTER
-        set_cell(cx, cy, WHITE, "8", BLACK, size=48)
+        set_cell(cx, cy, WHITE, "8", BLACK, size=42)
         state["mode"] = "idle"
 
     def randomize_tick(remaining: int) -> None:

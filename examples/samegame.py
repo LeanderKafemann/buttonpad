@@ -1,29 +1,13 @@
 from __future__ import annotations
 
-# SameGame clone using ButtonPad
-# - Grid: 15 x 10 buttons
-# - Each cell is randomly one of five colors: green, red, blue, yellow, purple
-# - Click a group (size >= 2) of same-colored adjacent cells to remove it
-# - Remaining cells fall down; empty columns shift left
-
 from typing import List, Optional, Tuple
 import random
+import buttonpad
 
-try:
-    import buttonpad  # local module name
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
-
-TITLE = "SameGame"
 COLS = 15
 ROWS = 10
 
 # UI
-CELL_W = 40
-CELL_H = 40
-HGAP = 2
-VGAP = 2
-BORDER = 10
 WINDOW_BG = "#f5f5f5"
 EMPTY_BG = "#e8e8e8"
 
@@ -51,12 +35,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=40,
+        cell_height=40,
+        h_gap=2,
+        v_gap=2,
+        border=10,
+        title="SameGame",
         default_bg_color=EMPTY_BG,
         default_text_color="black",
         window_color=WINDOW_BG,

@@ -1,31 +1,12 @@
 from __future__ import annotations
-
-"""
-Simon: 2x2 button grid Simon game using ButtonPad.
-- The game shows a growing sequence by lighting buttons.
-- Player repeats the pattern by clicking buttons.
-- On mistake, show an alert with the achieved sequence length, then start a new game.
-- No sound; feedback is via button highlight.
-"""
-
 import random
 from typing import List
+import buttonpad
 
-try:
-    import buttonpad
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
-
-TITLE = "Simon"
 COLS = 2
 ROWS = 2
 
 # UI
-CELL_W = 120
-CELL_H = 120
-HGAP = 8
-VGAP = 8
-BORDER = 10
 WINDOW_BG = "#0e1220"  # dark backdrop
 TEXT_COLOR = "#ffffff"
 
@@ -63,13 +44,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
-        default_bg_color=BASE_COLORS[0],  # we'll set per-cell below
+        cell_width=200,
+        cell_height=200,
+        h_gap=4,
+        v_gap=4,
+        border=8,
+        title="Simon",
         default_text_color=TEXT_COLOR,
         window_color=WINDOW_BG,
         resizable=True,
@@ -99,11 +79,15 @@ def main() -> None:
                 el.text_color = subtle_text_colors[idx]
             except Exception:
                 pass
-            # Map hotkey to this cell (labels don't have .hotkey property)
+            # Assign hotkey directly to label
             try:
-                pad.map_key(keysyms[idx], x, y)
+                el.hotkey = keysyms[idx]
             except Exception:
-                pass
+                # Fallback to explicit map if property assignment fails
+                try:
+                    pad.map_key(keysyms[idx], x, y)
+                except Exception:
+                    pass
 
     sequence: List[int] = []
     state = {"busy": False, "expect": 0, "accept": False, "timer_id": None, "score": 0, "high_score": 0}

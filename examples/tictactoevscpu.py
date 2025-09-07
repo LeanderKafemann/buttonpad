@@ -1,23 +1,11 @@
 from __future__ import annotations
 
-# Tic Tac Toe vs CPU (O): 3x3 grid.
-# - Human is X and goes first
-# - Clicking an empty cell places X; computer replies with O
-# - If tie, board flashes blanks on all nine cells
-# - If win, the winner's symbol flashes on all nine cells
-
 import buttonpad
 from typing import List, Optional, Tuple
 
-TITLE = "Tic Tac Toe (vs CPU)"
 SIZE = 3
 
 # UI tuning
-CELL_W = 72
-CELL_H = 72
-HGAP = 4
-VGAP = 4
-BORDER = 12
 EMPTY_BG = "#f0f0f0"
 TEXT_COLOR = "#222222"
 
@@ -99,12 +87,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=72,
+        cell_height=72,
+        h_gap=4,
+        v_gap=4,
+        border=12,
+        title="Tic Tac Toe (vs CPU)",
         default_bg_color=EMPTY_BG,
         default_text_color=TEXT_COLOR,
         window_color="#ffffff",
@@ -131,44 +119,25 @@ def main() -> None:
         state["who"] = "X"
         state["over"] = False
 
-    def flash_winner(sym: str, flashes: int = 6, interval_ms: int = 180) -> None:
+    def end_game(sym: Optional[str]) -> None:
+        """Announce winner (sym) or tie (sym is None) via alert, then reset."""
         state["over"] = True
-
-        def step(i: int) -> None:
-            show = (i % 2 == 0)
-            for el in cells:
-                el.text = sym if show else ""
-                el.font_size = 28
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
+        try:
+            if sym is None:
+                buttonpad.alert("It's a tie!")
             else:
-                pad.root.after(220, reset_board)
-
-        step(0)
-
-    def flash_tie(flashes: int = 6, interval_ms: int = 180) -> None:
-        state["over"] = True
-        snapshot = [el.text for el in cells]
-
-        def step(i: int) -> None:
-            blank_phase = (i % 2 == 0)
-            for idx, el in enumerate(cells):
-                el.text = "" if blank_phase else snapshot[idx]
-                el.font_size = 28
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
-            else:
-                pad.root.after(220, reset_board)
-
-        step(0)
+                buttonpad.alert(f"{sym} wins!")
+        except Exception:
+            pass
+        reset_board()
 
     def after_move_checks() -> bool:
         w = winner(board)
         if w is not None:
-            flash_winner(w)
+            end_game(w)
             return True
         if board_full(board):
-            flash_tie()
+            end_game(None)
             return True
         return False
 
@@ -178,16 +147,16 @@ def main() -> None:
         mv = choose_cpu_move(board)
         if mv is None:
             # no move (should mean tie)
-            if not after_move_checks():
-                flash_tie()
+            if not after_move_checks():  # fallback
+                end_game(None)
             return
         x, y = mv
         if board[y][x] != "":
             # Safety: find any empty
             empties = empty_cells(board)
             if not empties:
-                if not after_move_checks():
-                    flash_tie()
+                if not after_move_checks():  # fallback
+                    end_game(None)
                 return
             x, y = empties[0]
         board[y][x] = "O"

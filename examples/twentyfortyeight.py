@@ -10,21 +10,12 @@ from __future__ import annotations
 import random
 from typing import List
 
-try:
-    import buttonpad
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
+import buttonpad
 
-TITLE = "2048"
 COLS = 4
 ROWS = 4
 
 # Appearance
-CELL_W = 90
-CELL_H = 90
-HGAP = 6
-VGAP = 6
-BORDER = 10
 WINDOW_BG = "#0e1220"    # dark backdrop
 EMPTY_BG = "#1f2640"     # empty cell
 TEXT_COLOR = "#ffffff"    # always white text
@@ -58,12 +49,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=90,
+        cell_height=90,
+        h_gap=6,
+        v_gap=6,
+        border=10,
+        title="2048",
         default_bg_color=EMPTY_BG,
         default_text_color=TEXT_COLOR,
         window_color=WINDOW_BG,

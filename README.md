@@ -6,7 +6,7 @@ Key features:
 • Pure-Python, no custom widget subclasses you must learn — just layout + callbacks
 • CSV-like layout string with auto-merge of identical adjacent cells (blank/whitespace-only lines are ignored)
 • Per-cell click handlers plus hover enter/exit callbacks and tooltips
-• Global key mapping AND per-button hotkeys (BPButton.hotkey)
+• Global key mapping AND per-button / per-label hotkeys (BPButton.hotkey / BPLabel.hotkey)
 • Optional status bar (set/get via pad.status_bar) with color customization
 • Optional menubar definition with automatic accelerator binding
 • Easy runtime updates and direct element access via pad[x, y]
@@ -139,11 +139,11 @@ All wrappers expose:
 - `on_enter` / `on_exit` — hover handlers with the same signature.
 - `widget` — the underlying Tk widget, for advanced customization.
 Specific additions:
-- `BPButton.hotkey` property: assign a string (keysym) or tuple of strings to create independent hotkeys (case-insensitive). Reassigning replaces prior hotkeys.
+- `BPButton.hotkey` / `BPLabel.hotkey` properties: assign a string (keysym) or tuple of strings to create independent hotkeys (case-insensitive). Reassigning replaces prior hotkeys.
 
 Specifics:
 - `BPButton` — click-focused element; created for unquoted tokens.
-- `BPLabel` — static text; has `anchor` property (e.g., `"w"`, `"center"`, `"e"`).
+- `BPLabel` — static text; has `anchor` property (e.g., `"w"`, `"center"`, `"e"`) and optional `hotkey` like buttons.
 - `BPTextBox` — editable single-line entry; `text` reflects its content.
 
 

@@ -7,18 +7,10 @@ from __future__ import annotations
 import buttonpad
 from typing import List, Tuple
 
-TITLE = "Gomoku"
 SIZE = 15
-
-# UI tuning
-CELL_W = 40
-CELL_H = 40
-HGAP = 0
-VGAP = 0
-BORDER = 2
-EMPTY_BG = "#e8e8e8"
 WHITE_BG = "#ffffff"
 BLACK_BG = "#222222"
+EMPTY_BG = "#cd780a"  # matches default background for clearing
 
 
 def build_layout() -> str:
@@ -55,15 +47,14 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
-        default_bg_color=EMPTY_BG,
-        default_text_color="black",
-        window_color="#f0f0f0",
+        cell_width=40,
+        cell_height=40,
+        h_gap=0,
+        v_gap=0,
+        border=2,
+        title="Gomoku",
+        default_bg_color="#cd780a",
+        window_color="#804d00",
         resizable=True,
     )
 
@@ -89,22 +80,11 @@ def main() -> None:
         turn["who"] = 1
         game["over"] = False
 
-    def flash_winner(who: int, flashes: int = 6, interval_ms: int = 180) -> None:
+    def announce_winner(who: int) -> None:
         game["over"] = True
-        target = WHITE_BG if who == 1 else BLACK_BG
-        default = EMPTY_BG
-
-        def step(i: int) -> None:
-            color = target if (i % 2 == 0) else default
-            for el in cells:
-                el.background_color = color
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
-            else:
-                # Reset after final flash
-                pad.root.after(200, clear_board)
-
-        step(0)
+        winner = "White" if who == 1 else "Black"
+        buttonpad.alert(f"{winner} wins!", title="Gomoku")
+        clear_board()
 
     def handle_click(el, x: int, y: int) -> None:
         if game["over"]:
@@ -116,7 +96,7 @@ def main() -> None:
         set_cell_color(x, y, who)
 
         if has_five(board, x, y, who):
-            flash_winner(who)
+            announce_winner(who)
             return
 
         turn["who"] = 2 if who == 1 else 1

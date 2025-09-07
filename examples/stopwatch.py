@@ -118,13 +118,19 @@ def main() -> None:
     lap_btn.on_click = on_lap
     reset_btn.on_click = on_reset
 
-    # Optional key bindings: Space toggles, L lap, R reset
+    # Optional key bindings via hotkey properties: Space toggles, L lap, R reset
     try:
-        bp.map_key("space", 0, 1)  # will fire Start button handler
-        bp.map_key("l", 1, 1)
-        bp.map_key("r", 2, 1)
+        start_btn.hotkey = "space"  # type: ignore[attr-defined]
+        lap_btn.hotkey = "l"        # type: ignore[attr-defined]
+        reset_btn.hotkey = "r"      # type: ignore[attr-defined]
     except Exception:
-        pass
+        # Fallback to explicit mapping if hotkey properties unavailable
+        try:
+            bp.map_key("space", 0, 1)
+            bp.map_key("l", 1, 1)
+            bp.map_key("r", 2, 1)
+        except Exception:
+            pass
 
     # Initial display
     set_base_elapsed(0.0)

@@ -110,7 +110,8 @@ class _BPBase:
             try:
                 self.widget.configure(text=text)
             except tk.TclError:
-                assert False # For now, all widgets should support text configuration (BPButton, BPTextBox, and BPLabel) so this should never happen.
+                pass
+                #assert False # For now, all widgets should support text configuration (BPButton, BPTextBox, and BPLabel) so this should never happen.
 
         # Setting the background color, default to system default color.
         try:
@@ -346,6 +347,8 @@ class BPLabel(_BPBase):
         super().__init__(widget, text=text)
         self._anchor = anchor
         widget.configure(anchor=anchor)
+        # hotkey strings (lowercased keysym strings) stored as immutable tuple; None means no hotkeys.
+        self._hotkeys: Optional[Tuple[str, ...]] = None
 
     @property
     def anchor(self) -> str:
@@ -355,6 +358,80 @@ class BPLabel(_BPBase):
     def anchor(self, value: str) -> None:
         self._anchor = value
         self.widget.configure(anchor=value)
+
+    # --- hotkey property (same semantics as BPButton.hotkey) ---
+    @property
+    def hotkey(self) -> Optional[Tuple[str, ...]]:
+        """Set or get keyboard hotkeys for this label.
+
+        Accepts: None, a single string (Tk keysym), or a tuple of strings.
+        Internally stored as an immutable tuple of unique, lowercased keysyms
+        (first occurrence order preserved). Reassigning replaces previous
+        hotkeys; setting to None removes existing ones.
+        """
+        return self._hotkeys
+
+    @hotkey.setter
+    def hotkey(self, value: Optional[Union[str, Tuple[str, ...]]]) -> None:
+            """Assign keyboard hotkeys.
+
+            value may be:
+                - None: remove existing hotkeys
+                - str: a single keysym (e.g. "a", "Escape", "F5", "Shift-a")
+                - tuple[str, ...]: multiple independent hotkeys; each string is bound separately.
+
+            NOTE: A tuple ("Shift", "a") means either Shift OR a will trigger, *not* the combination.
+            To represent a modified key you must pass a single string like "Shift-a".
+            """
+            # Remove existing mappings first
+            try:
+                pad = getattr(self, "_buttonpad", None)
+                if pad is not None and self._hotkeys:
+                    to_delete = []
+                    for k in self._hotkeys:
+                        pos = pad._keymap.get(k)
+                        if pos == getattr(self, "_pos", None):
+                            to_delete.append(k)
+                    for k in to_delete:
+                        try:
+                            del pad._keymap[k]
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            if value is None:
+                self._hotkeys = None
+                return
+
+            # Normalize to iterable of strings; only allow str or tuple
+            if isinstance(value, str):
+                keys_iter = [value]
+            elif isinstance(value, tuple):
+                keys_iter = list(value)
+            else:
+                raise TypeError("hotkey must be a string, tuple of strings, or None")
+            seen = set()
+            ordered: List[str] = []
+            for k in keys_iter:
+                if not isinstance(k, str):
+                    continue
+                kk = k.strip().lower()
+                if not kk or kk in seen:
+                    continue
+                seen.add(kk)
+                ordered.append(kk)
+            self._hotkeys = tuple(ordered) if ordered else None
+
+            # Register with ButtonPad map_key
+            try:
+                if pad is not None and self._hotkeys:
+                    x, y = getattr(self, "_pos", (None, None))
+                    if x is not None and y is not None:
+                        for k in self._hotkeys:
+                            pad.map_key(k, x, y)
+            except Exception:
+                pass
 
 
 class BPTextBox(_BPBase):

@@ -8,23 +8,10 @@ from __future__ import annotations
 from typing import List, Tuple, Dict
 import random
 
-try:
-    import buttonpad  # local module name
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
+import buttonpad  # local module name
 
-TITLE = "Flood-It"
 COLS = 18
 ROWS = 18  # board only; layout adds 2 more rows (info + palette)
-
-# UI
-CELL_W = 26
-CELL_H = 26
-HGAP = 2
-VGAP = 2
-BORDER = 10
-WINDOW_BG = "#f5f5f5"
-TEXT_COLOR = "#222222"
 
 # After random fill, perform extra smoothing iterations by copying
 # a random neighbor's color into random cells to increase contiguity.
@@ -115,15 +102,15 @@ def main() -> None:
     layout = build_layout(initial_seed)
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
-        default_bg_color=WINDOW_BG,
-        default_text_color=TEXT_COLOR,
-        window_color=WINDOW_BG,
+        cell_width=26,
+        cell_height=26,
+        h_gap=2,
+        v_gap=2,
+        border=10,
+        title="Flood-It",
+        default_bg_color="lightgray",
+        default_text_color="#222222",
+        window_color="#f5f5f5",
         resizable=True,
     )
 

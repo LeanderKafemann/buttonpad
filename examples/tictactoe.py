@@ -1,23 +1,11 @@
 from __future__ import annotations
 
-# Tic Tac Toe: 3x3 grid of buttons for two human players.
-# - X goes first
-# - Clicking a button places X or O
-# - If tie, the board flashes with blank text on all nine spaces
-# - If someone wins, their symbol (X or O) flashes on all spaces
-
 import buttonpad
 from typing import List, Optional, Tuple
 
-TITLE = "Tic Tac Toe"
 SIZE = 3
 
 # UI tuning
-CELL_W = 72
-CELL_H = 72
-HGAP = 4
-VGAP = 4
-BORDER = 12
 EMPTY_BG = "#f0f0f0"
 TEXT_COLOR = "#222222"
 
@@ -57,23 +45,30 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=72,
+        cell_height=72,
+        h_gap=4,
+        v_gap=4,
+        border=12,
+        title="Tic Tac Toe",
         default_bg_color=EMPTY_BG,
         default_text_color=TEXT_COLOR,
         window_color="#ffffff",
-        resizable=False,
+    resizable=False,
+    status_bar="X Wins: 0  O Wins: 0  Ties: 0",
     )
 
     # Board state: "", "X", or "O"
     board: List[List[str]] = [["" for _ in range(SIZE)] for _ in range(SIZE)]
     cells = [pad[x, y] for y in range(SIZE) for x in range(SIZE)]  # type: ignore[list-item]
 
-    state = {"who": "X", "over": False}
+    state = {"who": "X", "over": False, "x_wins": 0, "o_wins": 0, "ties": 0}
+
+    def update_status_bar() -> None:
+        try:
+            pad.status_bar = f"X Wins: {state['x_wins']}  O Wins: {state['o_wins']}  Ties: {state['ties']}"
+        except Exception:
+            pass
 
     def update_ui() -> None:
         for y in range(SIZE):
@@ -89,38 +84,25 @@ def main() -> None:
         update_ui()
         state["who"] = "X"
         state["over"] = False
-
-    def flash_winner(sym: str, flashes: int = 6, interval_ms: int = 180) -> None:
+    def end_game(sym: Optional[str]) -> None:
+        """Announce winner (sym) or tie (None) and reset."""
         state["over"] = True
-
-        def step(i: int) -> None:
-            show = (i % 2 == 0)
-            for el in cells:
-                el.text = sym if show else ""
-                el.font_size = 28
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
+        # Increment counters before alert
+        if sym is None:
+            state["ties"] += 1
+        elif sym == "X":
+            state["x_wins"] += 1
+        else:
+            state["o_wins"] += 1
+        try:
+            if sym is None:
+                buttonpad.alert("It's a tie!")
             else:
-                pad.root.after(220, reset_board)
-
-        step(0)
-
-    def flash_tie(flashes: int = 6, interval_ms: int = 180) -> None:
-        state["over"] = True
-        # Snapshot original texts to flash between blank and original
-        snapshot = [el.text for el in cells]
-
-        def step(i: int) -> None:
-            blank_phase = (i % 2 == 0)
-            for idx, el in enumerate(cells):
-                el.text = "" if blank_phase else snapshot[idx]
-                el.font_size = 28
-            if i + 1 < flashes:
-                pad.root.after(interval_ms, lambda: step(i + 1))
-            else:
-                pad.root.after(220, reset_board)
-
-        step(0)
+                buttonpad.alert(f"{sym} wins!")
+        except Exception:
+            pass
+        update_status_bar()
+        reset_board()
 
     def handle_click(el, x: int, y: int) -> None:
         if state["over"]:
@@ -134,10 +116,10 @@ def main() -> None:
 
         w = winner(board)
         if w is not None:
-            flash_winner(w)
+            end_game(w)
             return
         if board_full(board):
-            flash_tie()
+            end_game(None)
             return
         state["who"] = "O" if who == "X" else "X"
 

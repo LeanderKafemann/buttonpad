@@ -1,9 +1,6 @@
 import sys
 from typing import List, Optional, Tuple
-
-# Enable local import of ButtonPad when running from repo
-sys.path.insert(0, __file__.split('/examples/')[0])
-from ButtonPad import ButtonPad, BPButton  # noqa: E402
+import buttonpad
 
 COLS = 7
 ROWS = 7
@@ -36,16 +33,146 @@ def build_layout() -> str:
     return "\n".join(rows)
 
 
-def main() -> None:
-    layout = build_layout()
+########################
+# Global game state
+bp = None  # type: ignore
+board: List[List[int]] = []
+selected: Optional[Tuple[int, int]] = None
 
-    peg_count_initial = sum(1 for y in range(ROWS) for x in range(COLS) if is_valid_cell(x, y)) - 1
 
-    # New Game callback placeholder; will be rebound after bp is created
-    def noop_new_game():
+def init_board() -> None:
+    global board, selected
+    selected = None
+    if not board:
+        board = [[-1] * COLS for _ in range(ROWS)]
+    for y in range(ROWS):
+        for x in range(COLS):
+            if is_valid_cell(x, y):
+                board[y][x] = 1
+            else:
+                board[y][x] = -1
+    board[3][3] = 0  # center empty
+
+
+def peg_count() -> int:
+    return sum(1 for y in range(ROWS) for x in range(COLS) if board and board[y][x] == 1)
+
+
+def update_status() -> None:
+    if bp is not None:
+        try:
+            bp.status_bar = f"Pegs: {peg_count()}"
+        except Exception:
+            pass
+
+
+def apply_cell_style(x: int, y: int) -> None:
+    if bp is None or not board:
+        return
+    el = bp[x, y]
+    val = board[y][x]
+    if val == -1:
+        el.text = ""
+        try:
+            el.background_color = WINDOW_BG
+        except Exception:
+            pass
+        return
+    if val == 1:
+        el.text = "●"
+        el.text_color = PEG_TEXT
+        base_bg = PEG_BG
+    else:
+        el.text = ""
+        base_bg = HOLE_BG
+    if selected == (x, y) and val == 1:
+        el.background_color = SELECT_BG
+    else:
+        el.background_color = base_bg
+    try:
+        el.font_size = 20
+    except Exception:
         pass
 
-    bp = ButtonPad(
+
+def update_all_cells() -> None:
+    if not board or bp is None:
+        return
+    for y in range(ROWS):
+        for x in range(COLS):
+            apply_cell_style(x, y)
+
+
+def in_bounds(x: int, y: int) -> bool:
+    return 0 <= x < COLS and 0 <= y < ROWS
+
+
+def can_jump(sx: int, sy: int, dx: int, dy: int) -> bool:
+    if not (in_bounds(dx, dy) and is_valid_cell(dx, dy)):
+        return False
+    if board[sy][sx] != 1 or board[dy][dx] != 0:
+        return False
+    vx, vy = dx - sx, dy - sy
+    if (abs(vx), abs(vy)) not in ((2, 0), (0, 2)):
+        return False
+    mx, my = sx + vx // 2, sy + vy // 2
+    if not in_bounds(mx, my) or board[my][mx] != 1:
+        return False
+    return True
+
+
+def perform_jump(sx: int, sy: int, dx: int, dy: int) -> None:
+    vx, vy = dx - sx, dy - sy
+    mx, my = sx + vx // 2, sy + vy // 2
+    board[sy][sx] = 0
+    board[my][mx] = 0
+    board[dy][dx] = 1
+    apply_cell_style(sx, sy)
+    apply_cell_style(mx, my)
+    apply_cell_style(dx, dy)
+    update_status()
+
+
+def on_cell_click(_el, x: int, y: int) -> None:
+    global selected
+    if not is_valid_cell(x, y):
+        return
+    val = board[y][x]
+    if val == 1:
+        if selected == (x, y):
+            selected = None
+            apply_cell_style(x, y)
+            return
+        if selected is not None:
+            px, py = selected
+            apply_cell_style(px, py)
+        selected = (x, y)
+        apply_cell_style(x, y)
+        return
+    if val == 0 and selected is not None:
+        sx, sy = selected
+        if can_jump(sx, sy, x, y):
+            perform_jump(sx, sy, x, y)
+            selected = None
+            return
+
+
+def new_game() -> None:
+    init_board()
+    update_all_cells()
+    update_status()
+
+
+def rebind_menu() -> None:
+    if bp is not None:
+        bp.menu = {"File": {"New Game": (new_game, "Cmd+N")}}
+
+
+def main() -> None:
+    global bp, board, selected
+    layout = build_layout()
+    peg_count_initial = sum(1 for y in range(ROWS) for x in range(COLS) if is_valid_cell(x, y)) - 1
+    bp = buttonpad.ButtonPad(
         layout=layout,
         cell_width=48,
         cell_height=48,
@@ -58,154 +185,21 @@ def main() -> None:
         resizable=False,
         border=8,
         status_bar=f"Pegs remaining: {peg_count_initial}",
-        menu={
-            "Game": {
-                "New Game": (lambda: noop_new_game(), "Cmd+N"),
-            }
-        },
+        menu=None,
     )
 
-    # --- game state ---
-    board: List[List[int]] = [[-1] * COLS for _ in range(ROWS)]
-    selected: Optional[Tuple[int, int]] = None
-
-    def init_board() -> None:
-        nonlocal board, selected
-        selected = None
-        for y in range(ROWS):
-            for x in range(COLS):
-                if is_valid_cell(x, y):
-                    board[y][x] = 1
-                else:
-                    board[y][x] = -1
-        # center empty
-        board[3][3] = 0
-
-    def peg_count() -> int:
-        return sum(1 for y in range(ROWS) for x in range(COLS) if board[y][x] == 1)
-
-    def update_status() -> None:
-        bp.status_bar = f"Pegs: {peg_count()}"
-
-    def apply_cell_style(x: int, y: int) -> None:
-        el = bp[x, y]
-        val = board[y][x]
-        if val == -1:
-            # invalid label area (no change needed except background blending)
-            el.text = ""
-            try:
-                el.background_color = WINDOW_BG
-            except Exception:
-                pass
-            return
-        # Valid button cell
-        if val == 1:
-            # Peg present
-            el.text = "●"
-            el.text_color = PEG_TEXT
-            base_bg = PEG_BG
-        else:
-            # Empty hole
-            el.text = ""
-            base_bg = HOLE_BG
-        # Selection highlight
-        if selected == (x, y) and val == 1:
-            el.background_color = SELECT_BG
-        else:
-            el.background_color = base_bg
-        # Slightly larger font for visibility
-        try:
-            el.font_size = 20
-        except Exception:
-            pass
-
-    def update_all_cells() -> None:
-        for y in range(ROWS):
-            for x in range(COLS):
-                apply_cell_style(x, y)
-
-    def in_bounds(x: int, y: int) -> bool:
-        return 0 <= x < COLS and 0 <= y < ROWS
-
-    def can_jump(sx: int, sy: int, dx: int, dy: int) -> bool:
-        # Destination must be exactly two steps away in a cardinal direction
-        if not (in_bounds(dx, dy) and is_valid_cell(dx, dy)):
-            return False
-        if board[sy][sx] != 1 or board[dy][dx] != 0:
-            return False
-        vx, vy = dx - sx, dy - sy
-        if (abs(vx), abs(vy)) not in ((2, 0), (0, 2)):
-            return False
-        mx, my = sx + vx // 2, sy + vy // 2
-        if not in_bounds(mx, my) or board[my][mx] != 1:
-            return False
-        return True
-
-    def perform_jump(sx: int, sy: int, dx: int, dy: int) -> None:
-        vx, vy = dx - sx, dy - sy
-        mx, my = sx + vx // 2, sy + vy // 2
-        board[sy][sx] = 0
-        board[my][mx] = 0
-        board[dy][dx] = 1
-        # Update only affected cells
-        apply_cell_style(sx, sy)
-        apply_cell_style(mx, my)
-        apply_cell_style(dx, dy)
-        update_status()
-
-    def on_cell_click(_: BPButton, x: int, y: int) -> None:
-        nonlocal selected
-        if not is_valid_cell(x, y):
-            return
-        val = board[y][x]
-        if val == 1:
-            # Select or unselect this peg
-            if selected == (x, y):
-                selected = None
-                apply_cell_style(x, y)
-                return
-            # Change previous selection back to normal if any
-            if selected is not None:
-                px, py = selected
-                apply_cell_style(px, py)
-            selected = (x, y)
-            apply_cell_style(x, y)
-            return
-        if val == 0 and selected is not None:
-            sx, sy = selected
-            if can_jump(sx, sy, x, y):
-                perform_jump(sx, sy, x, y)
-                selected = None
-                return
-        # Otherwise ignore
-
-    def new_game() -> None:
-        init_board()
-        update_all_cells()
-        update_status()
-
-    # Wire menu now that new_game exists
-    def rebind_menu() -> None:
-        bp.menu = {
-            "Game": {
-                "New Game": (new_game, "Cmd+N"),
-            }
-        }
-
-    # Initialize board, UI, and callbacks
+    bp.status_bar_text_color = "black"
+    board = [[-1] * COLS for _ in range(ROWS)]
+    selected = None
     init_board()
     update_all_cells()
     update_status()
-
-    # Attach click handlers to valid cells
     for y in range(ROWS):
         for x in range(COLS):
             if is_valid_cell(x, y):
                 el = bp[x, y]
                 el.on_click = lambda _el, xx=x, yy=y: on_cell_click(_el, xx, yy)
-
     rebind_menu()
-
     bp.run()
 
 

@@ -11,21 +11,12 @@ Memory Puzzle using ButtonPad
 import random
 from typing import List, Tuple
 
-try:
-    import buttonpad
-except Exception:
-    import ButtonPad as buttonpad  # type: ignore
+import buttonpad
 
-TITLE = "Memory Puzzle"
 COLS = 6
 ROWS = 4
 
 # UI
-CELL_W = 80
-CELL_H = 80
-HGAP = 6
-VGAP = 6
-BORDER = 10
 WINDOW_BG = "#0e1220"      # dark backdrop
 HIDDEN_BG = "#1f2640"      # hidden card background
 REVEAL_BG = "#2a3358"      # temporarily revealed background
@@ -50,12 +41,12 @@ def main() -> None:
     layout = build_layout(COLS, ROWS)
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=80,
+        cell_height=80,
+        h_gap=6,
+        v_gap=6,
+        border=10,
+        title="Memory Puzzle",
         default_bg_color=HIDDEN_BG,
         default_text_color=TEXT_COLOR,
         window_color=WINDOW_BG,

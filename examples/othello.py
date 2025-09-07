@@ -9,15 +9,9 @@ from __future__ import annotations
 import buttonpad
 from typing import List, Tuple
 
-TITLE = "Othello"
 SIZE = 8
 
 # UI
-CELL_W = 46
-CELL_H = 46
-HGAP = 2
-VGAP = 2
-BORDER = 12
 WINDOW_BG = "#6b4e2e"      # brown window
 BOARD_BG = "#2f6d2f"       # slightly dark green for cells
 WHITE_BG = "#ffffff"
@@ -33,12 +27,12 @@ def main() -> None:
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
-        cell_width=CELL_W,
-        cell_height=CELL_H,
-        h_gap=HGAP,
-        v_gap=VGAP,
-        border=BORDER,
-        title=TITLE,
+        cell_width=46,
+        cell_height=46,
+        h_gap=2,
+        v_gap=2,
+        border=12,
+        title="Othello",
         default_bg_color=BOARD_BG,
         default_text_color="white",
         window_color=WINDOW_BG,
@@ -64,13 +58,13 @@ def main() -> None:
         return 2 if p == 1 else 1
 
     def set_cell_color(x: int, y: int, who: int) -> None:
-        el = pad[x, y]  # type: ignore[index]
+        widget = pad[x, y]  # type: ignore[index]
         if who == 0:
-            el.background_color = BOARD_BG
+            widget.background_color = BOARD_BG
         elif who == 1:
-            el.background_color = WHITE_BG
+            widget.background_color = WHITE_BG
         else:
-            el.background_color = BLACK_BG
+            widget.background_color = BLACK_BG
 
     def update_ui() -> None:
         for y in range(SIZE):
@@ -82,10 +76,7 @@ def main() -> None:
         # Count discs and update status bar
         wcnt = sum(1 for row in board for v in row if v == 1)
         bcnt = sum(1 for row in board for v in row if v == 2)
-        try:
-            pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
-        except Exception:
-            pass
+        pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
 
     def find_flips(p: int, x: int, y: int) -> List[Tuple[int, int]]:
         if board[y][x] != 0:
@@ -133,20 +124,44 @@ def main() -> None:
     board[mid][mid - 1] = 2      # black
     update_ui()
 
+    def announce_winner() -> None:
+        wcnt = sum(1 for row in board for v in row if v == 1)
+        bcnt = sum(1 for row in board for v in row if v == 2)
+        if wcnt == bcnt:
+            msg = f"Tie game!\nWhite: {wcnt}  Black: {bcnt}"
+        elif wcnt > bcnt:
+            msg = f"White wins!\nWhite: {wcnt}  Black: {bcnt}"
+        else:
+            msg = f"Black wins!\nWhite: {wcnt}  Black: {bcnt}"
+        try:
+            buttonpad.alert(msg, title="Othello Result")
+        except Exception:
+            pass
+        # Reset board state
+        for yy in range(SIZE):
+            for xx in range(SIZE):
+                board[yy][xx] = 0
+        mid2 = SIZE // 2
+        board[mid2 - 1][mid2 - 1] = 1
+        board[mid2][mid2] = 1
+        board[mid2 - 1][mid2] = 2
+        board[mid2][mid2 - 1] = 2
+        turn["who"] = 2
+        update_ui()
+
     def handle_click(_el, x: int, y: int) -> None:
         p = turn["who"]
         moved = place_and_flip(p, x, y)
         if not moved:
             return  # illegal move
-        # Switch turns; if opponent has no moves, current player continues if they have moves
         np = opponent(p)
         if has_any_move(np):
             turn["who"] = np
         elif has_any_move(p):
             turn["who"] = p  # opponent passes
         else:
-            # No moves for either side: game over (no end animation required)
-            pass
+            announce_winner()
+            return
 
     # Wire handlers for all cells
     for y in range(SIZE):
