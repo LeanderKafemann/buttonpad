@@ -1,9 +1,22 @@
-# lights_out_5x5.py
 from __future__ import annotations
 
+"""Lights Out puzzle implemented with ButtonPad.
+
+Goal: Turn off (darken) all the lights. Clicking a cell toggles that cell and
+its four orthogonal neighbors (up/down/left/right). When all lights are off,
+the board briefly flashes colors and a new random puzzle appears.
+
+Beginner notes:
+    * The puzzle state is a 5x5 list of booleans (True = ON, False = OFF).
+    * We redraw all cells after each move (simple and fine for small boards).
+    * The flashing win animation uses a scheduled callback (pad.root.after).
+    * A factory function builds the click handler so it can capture references
+        to both the pad (UI) and the shared state list.
+"""
+
 import random
-from typing import List, Tuple
-from buttonpad import ButtonPad  # adjust if your package/module name differs
+from typing import List, Tuple, Optional
+from buttonpad import ButtonPad
 
 # 5x5 grid where each cell is a standalone button (no-merge using backtick `)
 LAYOUT = """
@@ -29,125 +42,132 @@ FLASH_OFF = "#1e1e1e"
 FLASH_COUNT = 6        # total on/off toggles
 FLASH_MS    = 120      # ms between flashes
 
-class LightsOut:
-    def __init__(self) -> None:
-        self.pad = ButtonPad(
-            layout=LAYOUT,
-            cell_width=70,
-            cell_height=70,
-            h_gap=6,
-            v_gap=6,
-            window_color="#121212",
-            default_bg_color="#121212",
-            default_text_color="white",
-            title="Lights Out (5×5)",
-            resizable=True,
-            border=12,
-        )
 
-        # state[y][x] -> bool (True = ON, False = OFF)
-        self.state: List[List[bool]] = [[False]*GRID_W for _ in range(GRID_H)]
+# --- game logic helpers (global) ---
+def in_bounds(x: int, y: int) -> bool:
+    """Return True if (x,y) is inside the puzzle grid."""
+    return 0 <= x < GRID_W and 0 <= y < GRID_H
 
-        # Initialize appearance & handlers
-        for y in range(GRID_H):
-            for x in range(GRID_W):
-                el = self.pad[x, y]
-                el.font_name = FONT
-                el.font_size = FONT_SZ
-                #el.text = "●"  # we’ll dim/brighten with colors
-                el.text = ''
-                # clicking toggles (element, x, y) signature:
-                el.on_click = self.handle_click
 
-        self.new_random_puzzle()
-        self.redraw()
+def toggle(state: List[List[bool]], x: int, y: int) -> None:
+    """Invert (flip) the boolean at (x,y) if that coordinate exists."""
+    if in_bounds(x, y):
+        state[y][x] = not state[y][x]
 
-    # --- game logic ---
-    def in_bounds(self, x: int, y: int) -> bool:
-        return 0 <= x < GRID_W and 0 <= y < GRID_H
 
-    def toggle(self, x: int, y: int) -> None:
-        if self.in_bounds(x, y):
-            self.state[y][x] = not self.state[y][x]
+def is_solved(state: List[List[bool]]) -> bool:
+    """Return True if every light is OFF (False)."""
+    return all(not v for row in state for v in row)
 
-    def handle_click(self, _el, x: int, y: int) -> None:
-        # toggle clicked + orthogonal neighbors
-        self.toggle(x, y)
-        self.toggle(x-1, y)
-        self.toggle(x+1, y)
-        self.toggle(x, y-1)
-        self.toggle(x, y+1)
-        self.redraw()
 
-        if self.is_solved():
-            self.win_flash_then_new()
+def new_random_puzzle(state: List[List[bool]], moves: int = 20) -> None:
+    """Randomize a puzzle by applying a number of random legitimate moves.
 
-    def is_solved(self) -> bool:
-        # solved when all OFF
-        return all(not v for row in self.state for v in row)
+    Strategy: Start from an all-OFF board and perform 'moves' random clicks.
+    Each random click toggles the selected cell + its neighbors. This ensures
+    the resulting board is always solvable (because we built it by valid moves).
+    """
+    for y in range(GRID_H):
+        for x in range(GRID_W):
+            state[y][x] = False
+    for _ in range(moves):
+        rx, ry = random.randrange(GRID_W), random.randrange(GRID_H)
+        toggle(state, rx, ry)
+        toggle(state, rx-1, ry)
+        toggle(state, rx+1, ry)
+        toggle(state, rx, ry-1)
+        toggle(state, rx, ry+1)
 
-    def new_random_puzzle(self, moves: int = 20) -> None:
-        # start all-off, then apply N random valid moves to guarantee solvable
-        for y in range(GRID_H):
-            for x in range(GRID_W):
-                self.state[y][x] = False
-        for _ in range(moves):
-            rx, ry = random.randrange(GRID_W), random.randrange(GRID_H)
-            # simulate a click move:
-            self.toggle(rx, ry)
-            self.toggle(rx-1, ry)
-            self.toggle(rx+1, ry)
-            self.toggle(rx, ry-1)
-            self.toggle(rx, ry+1)
 
-    # --- UI ---
-    def redraw(self) -> None:
-        for y in range(GRID_H):
-            for x in range(GRID_W):
-                el = self.pad[x, y]
-                if self.state[y][x]:
-                    el.background_color = ON_BG
-                    el.text_color = ON_FG
-                else:
-                    el.background_color = OFF_BG
-                    el.text_color = OFF_FG
-
-    def win_flash_then_new(self) -> None:
-        """
-        Flash the whole board, then generate a new puzzle and redraw.
-        """
-        # capture original colors to restore after flashing
-        original: List[List[Tuple[str, str]]] = [
-            [(self.pad[x, y].background_color, self.pad[x, y].text_color) for x in range(GRID_W)]
-            for y in range(GRID_H)
-        ]
-
-        def set_all(bg: str, fg: str) -> None:
-            for y in range(GRID_H):
-                for x in range(GRID_W):
-                    el = self.pad[x, y]
-                    el.background_color = bg
-                    el.text_color = fg
-
-        def do_flash(step: int = 0) -> None:
-            if step >= FLASH_COUNT:
-                # done flashing: start a new puzzle and restore normal looks
-                self.new_random_puzzle()
-                self.redraw()
-                return
-
-            if step % 2 == 0:
-                set_all(FLASH_ON, "black")
+def redraw(pad: ButtonPad, state: List[List[bool]]) -> None:
+    """Update every cell's color to reflect the boolean 'state'."""
+    for y in range(GRID_H):
+        for x in range(GRID_W):
+            el = pad[x, y]
+            if state[y][x]:
+                el.background_color = ON_BG
+                el.text_color = ON_FG
             else:
-                set_all(FLASH_OFF, "white")
+                el.background_color = OFF_BG
+                el.text_color = OFF_FG
 
-            self.pad.root.after(FLASH_MS, lambda: do_flash(step + 1))
 
-        do_flash()
+def set_all(pad: ButtonPad, bg: str, fg: str) -> None:
+    """Set the background & text color of all cells (used for win flash)."""
+    for y in range(GRID_H):
+        for x in range(GRID_W):
+            el = pad[x, y]
+            el.background_color = bg
+            el.text_color = fg
 
-    def run(self) -> None:
-        self.pad.run()
+
+def win_flash_then_new(pad: ButtonPad, state: List[List[bool]], step: int = 0) -> None:
+    """Flash colors to celebrate a win, then start a new randomized puzzle.
+
+    We schedule repeated calls using pad.root.after until 'step' reaches
+    FLASH_COUNT. Alternating steps choose different colors for a strobe effect.
+    """
+    if step >= FLASH_COUNT:
+        new_random_puzzle(state)
+        redraw(pad, state)
+        return
+    if step % 2 == 0:
+        set_all(pad, FLASH_ON, "black")
+    else:
+        set_all(pad, FLASH_OFF, "white")
+    try:
+        pad.root.after(FLASH_MS, lambda: win_flash_then_new(pad, state, step + 1))
+    except Exception:
+        pass  # Window may be closed before animation ends
+
+
+def handle_click_factory(pad: ButtonPad, state: List[List[bool]]):
+    """Return a click handler bound to this pad & state (closure pattern).
+
+    ButtonPad gives us the element + coordinates; we ignore the element
+    itself and just use the (x,y) to apply the Lights Out toggle pattern.
+    """
+    def handler(_el, x: int, y: int):
+        # Toggle clicked cell + its four neighbors
+        toggle(state, x, y)
+        toggle(state, x-1, y)
+        toggle(state, x+1, y)
+        toggle(state, x, y-1)
+        toggle(state, x, y+1)
+        redraw(pad, state)
+        if is_solved(state):  # After every move, test for victory
+            win_flash_then_new(pad, state)
+    return handler
+
+
+def main() -> None:
+    """Create the window, configure cells, start a random puzzle, run loop."""
+    pad = ButtonPad(
+        layout=LAYOUT,
+        cell_width=70,
+        cell_height=70,
+        h_gap=6,
+        v_gap=6,
+        window_color="#121212",
+        default_bg_color="#121212",
+        default_text_color="white",
+        title="Lights Out (5×5)",
+        resizable=True,
+        border=12,
+    )
+    state: List[List[bool]] = [[False]*GRID_W for _ in range(GRID_H)]
+    handler = handle_click_factory(pad, state)
+    for y in range(GRID_H):
+        for x in range(GRID_W):
+            el = pad[x, y]
+            el.font_name = FONT
+            el.font_size = FONT_SZ
+            el.text = ''  # no text; background color represents state
+            el.on_click = handler
+    new_random_puzzle(state)
+    redraw(pad, state)
+    pad.run()
 
 
 if __name__ == "__main__":
-    LightsOut().run()
+    main()

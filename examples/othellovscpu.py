@@ -1,15 +1,24 @@
 from __future__ import annotations
 
-# Othello (Reversi) vs CPU: 8x8 grid of buttons using ButtonPad.
-# - Window background is brown
-# - Cell background starts slightly dark green
-# - Human is WHITE; CPU is BLACK; BLACK moves first
-# - Legal human moves are shown as a yellow dot (text) on empty cells
-# - CPU replies automatically
-# - When no moves for either side, the winner's color slowly flashes for a few seconds, then the board resets
+"""Othello (Reversi) versus a simple CPU opponent using ButtonPad.
+
+Features / rules:
+    * 8x8 board; BLACK (CPU) moves first, WHITE is the human player.
+    * Legal human moves are displayed as small yellow hint dots (".").
+    * Clicking a hinted square places a WHITE disc and flips bracketed BLACK discs.
+    * CPU responds automatically using a very small greedy heuristic.
+    * If a player has no legal moves, the turn skips. Game ends when neither side
+        can move; winner is the player with more discs.
+
+Beginner notes:
+    * Board is a dict mapping (x,y) -> int (0 empty, 1 white, 2 black).
+    * The state dict holds current turn and game-over flag.
+    * find_flips() implements core Othello legality: collects bracketed discs.
+    * The CPU's move selection is deliberately simple and NOT a strong strategy.
+"""
 
 import buttonpad
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 SIZE = 8
 
@@ -37,59 +46,75 @@ DIRS: Tuple[Tuple[int, int], ...] = (
 
 
 def build_layout() -> str:
+    """Return the layout string for an 8x8 grid of independent cells."""
     row = ",".join(["`"] * SIZE)
     return "\n".join([row for _ in range(SIZE)])
 
 
 def in_bounds(x: int, y: int) -> bool:
+    """Return True if (x,y) is on the board."""
     return 0 <= x < SIZE and 0 <= y < SIZE
 
 
 def opponent(p: int) -> int:
+    """Return the opposing player constant."""
     return BLACK if p == WHITE else WHITE
 
 
-def find_flips(board: List[List[int]], p: int, x: int, y: int) -> List[Tuple[int, int]]:
-    if board[y][x] != EMPTY:
+BoardType = Dict[Tuple[int, int], int]
+
+
+def find_flips(board: BoardType, p: int, x: int, y: int) -> List[Tuple[int, int]]:
+    """Return list of opponent discs flipped if player p plays at (x,y).
+
+    Algorithm: For each of 8 directions, step outward collecting opponent
+    discs until hitting (a) own disc (legal -> add collected), (b) empty/out
+    of bounds (illegal -> discard collected). Target must be EMPTY.
+    """
+    if board[(x, y)] != EMPTY:
         return []
     flips: List[Tuple[int, int]] = []
     opp = opponent(p)
     for dx, dy in DIRS:
         cx, cy = x + dx, y + dy
         line: List[Tuple[int, int]] = []
-        if not in_bounds(cx, cy) or board[cy][cx] != opp:
+        if not in_bounds(cx, cy) or board[(cx, cy)] != opp:
             continue
-        while in_bounds(cx, cy) and board[cy][cx] == opp:
+        while in_bounds(cx, cy) and board[(cx, cy)] == opp:
             line.append((cx, cy))
             cx += dx
             cy += dy
         if not in_bounds(cx, cy):
             continue
-        if board[cy][cx] == p and line:
+        if board[(cx, cy)] == p and line:
             flips.extend(line)
     return flips
 
 
-def legal_moves(board: List[List[int]], p: int) -> List[Tuple[int, int]]:
+def legal_moves(board: BoardType, p: int) -> List[Tuple[int, int]]:
+    """Return list of all coordinates where player p can legally move."""
     out: List[Tuple[int, int]] = []
     for y in range(SIZE):
         for x in range(SIZE):
-            if board[y][x] == EMPTY and find_flips(board, p, x, y):
+            if board[(x, y)] == EMPTY and find_flips(board, p, x, y):
                 out.append((x, y))
     return out
 
 
-def any_move(board: List[List[int]], p: int) -> bool:
+def any_move(board: BoardType, p: int) -> bool:
+    """Return True if player p has at least one legal move."""
     for y in range(SIZE):
         for x in range(SIZE):
-            if board[y][x] == EMPTY and find_flips(board, p, x, y):
+            if board[(x, y)] == EMPTY and find_flips(board, p, x, y):
                 return True
     return False
 
 
-def choose_cpu_move(board: List[List[int]]) -> Optional[Tuple[int, int]]:
-    """Pick a legal move for BLACK using a simple greedy strategy (maximize flips).
-    If tie, prefer corners > center > edges.
+def choose_cpu_move(board: BoardType) -> Optional[Tuple[int, int]]:
+    """Return a greedy BLACK move maximizing flips with simple tie-breakers.
+
+    Tie-breaking priority (after number of flips): corner > closer to center > edge.
+    This is a naive heuristic just for demonstration, not a real AI.
     """
     moves = legal_moves(board, BLACK)
     if not moves:
@@ -98,12 +123,9 @@ def choose_cpu_move(board: List[List[int]]) -> Optional[Tuple[int, int]]:
     def move_score(mv: Tuple[int, int]) -> Tuple[int, int, int, int]:
         x, y = mv
         flips = len(find_flips(board, BLACK, x, y))
-        # corner bonus
         corner = 1 if (x, y) in ((0, 0), (0, SIZE - 1), (SIZE - 1, 0), (SIZE - 1, SIZE - 1)) else 0
-        # center proximity (smaller distance is better -> invert)
-        cx = abs(x - (SIZE // 2 - 0)) + abs(y - (SIZE // 2 - 0))
-        center_pref = -cx
-        # edges slightly preferred
+        center_dist = abs(x - (SIZE // 2)) + abs(y - (SIZE // 2))
+        center_pref = -center_dist
         edge = 1 if (x in (0, SIZE - 1) or y in (0, SIZE - 1)) else 0
         return (flips, corner, center_pref, edge)
 
@@ -111,7 +133,146 @@ def choose_cpu_move(board: List[List[int]]) -> Optional[Tuple[int, int]]:
     return moves[0]
 
 
+def set_cell_color(pad, x: int, y: int, who: int) -> None:
+    """Paint the background color for the disc value at (x,y)."""
+    el = pad[x, y]  # type: ignore[index]
+    if who == EMPTY:
+        el.background_color = BOARD_BG
+    elif who == WHITE:
+        el.background_color = WHITE_BG
+    else:
+        el.background_color = BLACK_BG
+
+
+def update_status(pad, board: BoardType) -> None:
+    """Update status bar with current disc counts."""
+    wcnt = sum(1 for v in board.values() if v == WHITE)
+    bcnt = sum(1 for v in board.values() if v == BLACK)
+    try:
+        pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
+    except Exception:
+        pass
+
+
+def update_ui(pad, board: BoardType, state, show_hints: bool = True) -> None:
+    """Redraw all cells and optionally show legal move hints for WHITE."""
+    for y in range(SIZE):
+        for x in range(SIZE):
+            set_cell_color(pad, x, y, board[(x, y)])
+            el = pad[x, y]  # type: ignore[index]
+            el.text = ""
+            el.text_color = TEXT_DEFAULT
+            el.font_size = SYMBOL_FONT_SIZE
+    if show_hints and state["turn"] == WHITE and not state["over"]:
+        for x, y in legal_moves(board, WHITE):
+            el = pad[x, y]  # type: ignore[index]
+            el.text = HINT_CHAR
+            el.text_color = HINT_COLOR
+            el.font_size = SYMBOL_FONT_SIZE
+    update_status(pad, board)
+
+
+def place_and_flip(pad, board: BoardType, state, p: int, x: int, y: int) -> bool:
+    """Attempt to place disc for p at (x,y); flip bracketed discs; return success."""
+    flips = find_flips(board, p, x, y)
+    if not flips:
+        return False
+    board[(x, y)] = p
+    for fx, fy in flips:
+        board[(fx, fy)] = p
+    update_ui(pad, board, state, show_hints=(p != BLACK))
+    return True
+
+
+def end_and_announce_winner(pad, board: BoardType, state) -> None:
+    """Show final result dialog and automatically start a new game."""
+    wcnt = sum(1 for v in board.values() if v == WHITE)
+    bcnt = sum(1 for v in board.values() if v == BLACK)
+    state["over"] = True
+    if wcnt == bcnt:
+        msg = f"Tie game!\nWhite: {wcnt}  Black: {bcnt}"
+    elif wcnt > bcnt:
+        msg = f"White wins!\nWhite: {wcnt}  Black: {bcnt}"
+    else:
+        msg = f"Black wins!\nWhite: {wcnt}  Black: {bcnt}"
+    try:
+        buttonpad.alert(msg, title="Othello Result")
+    except Exception:
+        pass
+    reset_game(pad, board, state)
+
+
+def advance_turn(pad, board: BoardType, state) -> None:
+    """Advance the turn, handling skip logic and scheduling CPU if needed."""
+    p = state["turn"]
+    np = opponent(p)
+    if any_move(board, np):
+        state["turn"] = np
+    elif any_move(board, p):  # Opponent had none; current plays again
+        state["turn"] = p
+    else:  # Neither side can move -> game ends
+        end_and_announce_winner(pad, board, state)
+        return
+    update_ui(pad, board, state, show_hints=(state["turn"] == WHITE))
+    if state["turn"] == BLACK and not state["over"]:
+        try:
+            pad.root.after(200, lambda: cpu_move(pad, board, state))
+        except Exception:
+            cpu_move(pad, board, state)
+
+
+def handle_click(pad, board: BoardType, state, _el, x: int, y: int) -> None:
+    """Process a human (WHITE) click on board coordinate (x,y)."""
+    if state["over"] or state["turn"] != WHITE:
+        return
+    if board[(x, y)] != EMPTY:
+        return
+    if not place_and_flip(pad, board, state, WHITE, x, y):
+        return
+    advance_turn(pad, board, state)
+
+
+def cpu_move(pad, board: BoardType, state) -> None:
+    """Let the CPU (BLACK) choose and execute a move, then advance turn."""
+    if state["over"] or state["turn"] != BLACK:
+        return
+    mv = choose_cpu_move(board)
+    if mv is None:
+        advance_turn(pad, board, state)
+        return
+    x, y = mv
+    if not place_and_flip(pad, board, state, BLACK, x, y):
+        # Fallback: if chosen move somehow illegal, pick first legal.
+        moves = legal_moves(board, BLACK)
+        if not moves:
+            advance_turn(pad, board, state)
+            return
+        x, y = moves[0]
+        place_and_flip(pad, board, state, BLACK, x, y)
+    advance_turn(pad, board, state)
+
+
+def reset_game(pad, board: BoardType, state) -> None:
+    """Reset to starting position and let BLACK (CPU) make first move."""
+    for y in range(SIZE):
+        for x in range(SIZE):
+            board[(x, y)] = EMPTY
+    mid = SIZE // 2
+    board[(mid - 1, mid - 1)] = WHITE
+    board[(mid, mid)] = WHITE
+    board[(mid - 1, mid)] = BLACK
+    board[(mid, mid - 1)] = BLACK
+    state["turn"] = BLACK
+    state["over"] = False
+    update_ui(pad, board, state, show_hints=False)
+    try:
+        pad.root.after(250, lambda: cpu_move(pad, board, state))
+    except Exception:
+        cpu_move(pad, board, state)
+
+
 def main() -> None:
+    """Create window, initialize game state, wire events, start game loop."""
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
@@ -127,142 +288,14 @@ def main() -> None:
         resizable=True,
         status_bar="White: 2  Black: 2",
     )
-
-    board: List[List[int]] = [[EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
-    cells = [pad[x, y] for y in range(SIZE) for x in range(SIZE)]  # type: ignore[list-item]
-
+    board: BoardType = {(x, y): EMPTY for y in range(SIZE) for x in range(SIZE)}
     state = {"turn": BLACK, "over": False}
-
-    def set_cell_color(x: int, y: int, who: int) -> None:
-        el = pad[x, y]  # type: ignore[index]
-        if who == EMPTY:
-            el.background_color = BOARD_BG
-        elif who == WHITE:
-            el.background_color = WHITE_BG
-        else:
-            el.background_color = BLACK_BG
-
-    def update_status() -> None:
-        wcnt = sum(1 for row in board for v in row if v == WHITE)
-        bcnt = sum(1 for row in board for v in row if v == BLACK)
-        try:
-            pad.status_bar = f"White: {wcnt}  Black: {bcnt}"
-        except Exception:
-            pass
-
-    def update_ui(show_hints: bool = True) -> None:
-        # Apply backgrounds according to board; clear text; optionally add hints for human
-        for y in range(SIZE):
-            for x in range(SIZE):
-                set_cell_color(x, y, board[y][x])
-                el = pad[x, y]  # type: ignore[index]
-                el.text = ""
-                el.text_color = TEXT_DEFAULT
-                el.font_size = SYMBOL_FONT_SIZE
-        if show_hints and state["turn"] == WHITE and not state["over"]:
-            for x, y in legal_moves(board, WHITE):
-                el = pad[x, y]  # type: ignore[index]
-                el.text = HINT_CHAR
-                el.text_color = HINT_COLOR
-                el.font_size = SYMBOL_FONT_SIZE
-        update_status()
-
-    def reset_game() -> None:
-        for y in range(SIZE):
-            for x in range(SIZE):
-                board[y][x] = EMPTY
-        mid = SIZE // 2
-        board[mid - 1][mid - 1] = WHITE
-        board[mid][mid] = WHITE
-        board[mid - 1][mid] = BLACK
-        board[mid][mid - 1] = BLACK
-        state["turn"] = BLACK
-        state["over"] = False
-        # No human hints when BLACK starts; schedule first CPU move
-        update_ui(show_hints=False)
-        try:
-            pad.root.after(250, cpu_move)
-        except Exception:
-            pass
-
-    def end_and_announce_winner() -> None:
-        # Count discs and announce result via alert, then reset after dialog.
-        wcnt = sum(1 for row in board for v in row if v == WHITE)
-        bcnt = sum(1 for row in board for v in row if v == BLACK)
-        state["over"] = True
-        if wcnt == bcnt:
-            msg = f"Tie game!\nWhite: {wcnt}  Black: {bcnt}"
-        elif wcnt > bcnt:
-            msg = f"White wins!\nWhite: {wcnt}  Black: {bcnt}"
-        else:
-            msg = f"Black wins!\nWhite: {wcnt}  Black: {bcnt}"
-        try:
-            buttonpad.alert(msg, title="Othello Result")
-        except Exception:
-            pass
-        reset_game()
-
-    def place_and_flip(p: int, x: int, y: int) -> bool:
-        flips = find_flips(board, p, x, y)
-        if not flips:
-            return False
-        board[y][x] = p
-        for fx, fy in flips:
-            board[fy][fx] = p
-        update_ui(show_hints=(p != BLACK))  # after placing, show hints only if next is human
-        return True
-
-    def advance_turn() -> None:
-        # After a legal move, switch turns with pass logic; if no moves for either, end
-        p = state["turn"]
-        np = opponent(p)
-        if any_move(board, np):
-            state["turn"] = np
-        elif any_move(board, p):
-            state["turn"] = p  # opponent passes
-        else:
-            end_and_announce_winner()
-            return
-        update_ui(show_hints=(state["turn"] == WHITE))
-        if state["turn"] == BLACK and not state["over"]:
-            # Let UI breathe, then CPU moves
-            pad.root.after(200, cpu_move)
-
-    def handle_click(_el, x: int, y: int) -> None:
-        if state["over"] or state["turn"] != WHITE:
-            return
-        if board[y][x] != EMPTY:
-            return
-        if not place_and_flip(WHITE, x, y):
-            return
-        advance_turn()
-
-    def cpu_move() -> None:
-        if state["over"] or state["turn"] != BLACK:
-            return
-        mv = choose_cpu_move(board)
-        if mv is None:
-            advance_turn()
-            return
-        x, y = mv
-        if not place_and_flip(BLACK, x, y):
-            # Shouldn't happen; try any legal move
-            moves = legal_moves(board, BLACK)
-            if not moves:
-                advance_turn()
-                return
-            x, y = moves[0]
-            place_and_flip(BLACK, x, y)
-        advance_turn()
-
-    # Wire handlers
     for y in range(SIZE):
         for x in range(SIZE):
-            pad[x, y].on_click = handle_click  # type: ignore[index]
+            pad[x, y].on_click = (lambda el, xx=x, yy=y: handle_click(pad, board, state, el, xx, yy))  # type: ignore[index]
             pad[x, y].font_size = SYMBOL_FONT_SIZE  # type: ignore[index]
-
-    reset_game()
-    update_status()
+    reset_game(pad, board, state)
+    update_status(pad, board)
     pad.run()
 
 

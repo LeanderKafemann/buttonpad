@@ -1,3 +1,21 @@
+"""Animated fish tank demo using ButtonPad.
+
+Description:
+    * Creates a grid of water cells with a sand bottom row.
+    * Random fish (emojis) swim around the water area, moving one cell at a time
+        with randomized delays (each fish has its own speed).
+    * One or two bottom creatures (crab/lobster) pace back and forth along the sand.
+    * Simple occupancy tracking prevents creatures from overlapping.
+
+Beginner pointers:
+    * We store each moving creature as a dictionary with position, speed (ms),
+        and direction (for walkers). This keeps code explicit & easy to inspect.
+    * Movement is scheduled with Tk's after(): each fish re-schedules its own
+        move_fish_one() call when done.
+    * The 'occupied' set holds coordinates currently used by any creature to
+        avoid overlapping moves.
+"""
+
 import random
 import sys
 from typing import Dict, List, Optional, Set, Tuple
@@ -26,12 +44,17 @@ BOTTOM_EMOJIS = ["🦀", "🦞"]  # crab, lobster
 
 
 def build_empty_label_layout(cols: int, rows: int) -> str:
-    # Use quoted empty strings to create labels
+    """Return a layout string (cols x rows) of empty label cells.
+
+    Each cell token is `"" (backtick + empty quoted string) which makes a
+    blank label we can later color and place emojis into.
+    """
     line = ",".join(["`\"\""] * cols)
     return "\n".join([line for _ in range(rows)])
 
 
 def main() -> None:
+    """Create the fish tank window, spawn creatures, start animations."""
     layout = build_empty_label_layout(COLS, ROWS)
 
     bp = buttonpad.ButtonPad(
@@ -74,19 +97,19 @@ def main() -> None:
     for i in range(fish_count):
         # Pick emoji cycling through list for variety
         emoji = FISH_EMOJIS[i % len(FISH_EMOJIS)]
-        # Find a free starting position
+        # Find a free starting position among water cells
         rng.shuffle(water_cells)
         start: Optional[Tuple[int, int]] = None
         for pos in water_cells:
             if pos not in occupied:
                 start = pos
                 break
-        if start is None:
+        if start is None:  # No free water cell left
             break
         occupied.add(start)
         x, y = start
         bp[x, y].text = emoji
-        # Half moderate speed (now doubled: 800-1300ms), half slow (now doubled: 1600-2600ms)
+        # Moderate vs slow speeds (in milliseconds)
         if i % 2 == 0:
             speed = rng.randint(800, 1300)
         else:
@@ -99,7 +122,7 @@ def main() -> None:
     rng.shuffle(BOTTOM_EMOJIS)
     candidates = BOTTOM_EMOJIS[:walker_count]
     for emoji in candidates:
-        # choose free x on sand
+        # Choose free x on sand
         xs = list(range(COLS))
         rng.shuffle(xs)
         start_x = None
@@ -111,35 +134,36 @@ def main() -> None:
             continue
         occupied.add((start_x, SAND_ROW))
         bp[start_x, SAND_ROW].text = emoji
-        dir_ = rng.choice([-1, 1])
-    walkers.append({"pos": (start_x, SAND_ROW), "emoji": emoji, "dir": dir_, "ms": rng.randint(1200, 2200)})
+        dir_ = rng.choice([-1, 1])  # initial direction: left or right
+        walkers.append({"pos": (start_x, SAND_ROW), "emoji": emoji, "dir": dir_, "ms": rng.randint(1200, 2200)})
 
     # ---- movement logic ----
     def free(p: Tuple[int, int]) -> bool:
+        """Return True if coordinate p is inside grid and unoccupied."""
         x, y = p
         return (0 <= x < COLS) and (0 <= y < ROWS) and (p not in occupied)
 
     def in_water(p: Tuple[int, int]) -> bool:
+        """Return True if p is above the sand row (i.e., in water)."""
         return 0 <= p[0] < COLS and 0 <= p[1] < SAND_ROW
 
     def move_fish_one(idx: int) -> None:
+        """Move a single fish one step (random 4-neighborhood) then reschedule."""
         if idx >= len(fish):
             return
         info = fish[idx]
         x, y = info["pos"]
         emoji = info["emoji"]
-        # 4-neighborhood; bias to keep moving horizontally a bit more often
+        # Candidate neighbor cells (right, left, down, up). We shuffle order.
         candidates = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
         rng.shuffle(candidates)
-        # With small chance, don't move this tick
+        # With small chance, remain stationary this tick.
         if rng.random() < 0.15:
             bp.root.after(info["ms"], lambda i=idx: move_fish_one(i))
             return
-        # Try to move to first free water cell
         for nx, ny in candidates:
             np = (nx, ny)
             if in_water(np) and free(np):
-                # Update UI and occupancy
                 bp[x, y].text = ""
                 occupied.discard((x, y))
                 bp[nx, ny].text = emoji
@@ -149,6 +173,7 @@ def main() -> None:
         bp.root.after(info["ms"], lambda i=idx: move_fish_one(i))
 
     def move_walker_one(idx: int) -> None:
+        """Move a sand walker horizontally; reverse on edges or obstacles."""
         if idx >= len(walkers):
             return
         info = walkers[idx]
@@ -157,7 +182,7 @@ def main() -> None:
         dir_ = info["dir"]
         nx = x + dir_
         np = (nx, SAND_ROW)
-        # If blocked or beyond edges, flip direction; otherwise move
+        # Reverse direction if would leave board or cell is occupied
         if not (0 <= nx < COLS) or not free(np):
             dir_ = -dir_
             info["dir"] = dir_
@@ -171,7 +196,7 @@ def main() -> None:
             info["pos"] = np
         bp.root.after(info["ms"], lambda i=idx: move_walker_one(i))
 
-    # Kick off animations
+    # Kick off animations (stagger initial delays so they don't all move at once)
     for i in range(len(fish)):
         bp.root.after(random.randint(0, 800), lambda i=i: move_fish_one(i))
     for i in range(len(walkers)):

@@ -1,9 +1,20 @@
 from __future__ import annotations
 
-# 15-Tile Slide Puzzle using ButtonPad
-# - 4 x 4 grid of buttons (tiles 1..15 and one empty space)
-# - Click a tile adjacent to the empty space to slide it
-# - Board shuffles to a random solvable state on start
+"""15-Puzzle (sliding tiles) implemented with ButtonPad.
+
+Gameplay basics:
+    * 4x4 board contains tiles 1..15 plus one blank (0 represents blank).
+    * Click a tile adjacent (orthogonally) to the blank to slide it into the blank.
+    * Keyboard: Arrow keys or WASD also slide tiles (by moving the tile toward the blank).
+    * Shuffle produces a random solvable configuration using a series of blank moves.
+    * Solve button animates the reverse of user moves then the generation moves, restoring the solved board.
+
+Implementation notes:
+    * Board stored as list of lists of ints; 0 denotes blank.
+    * Two histories: gen_moves (blank displacements during shuffle) and user_moves
+        (blank displacements caused by player). Solve replays them backwards.
+    * We count player moves only (shuffling doesn't increment the move counter).
+"""
 
 from typing import List, Tuple
 import random
@@ -33,7 +44,7 @@ Coord = Tuple[int, int]
 
 
 def build_layout() -> str:
-    # Control row at top: New, Solve, (two blanks)
+    """Return layout with control row (New/Solve) plus 4x4 puzzle area."""
     control = ",".join(["New", "New", "Solve", "Solve"])
     row = ",".join(["`"] * COLS)
     grid = "\n".join([row for _ in range(ROWS)])
@@ -41,10 +52,12 @@ def build_layout() -> str:
 
 
 def flatten(board: List[List[int]]) -> List[int]:
+    """Return board values in row-major order (used for checks)."""
     return [board[y][x] for y in range(ROWS) for x in range(COLS)]
 
 
 def count_inversions(arr: List[int]) -> int:
+    """Return number of out-of-order tile pairs (ignoring the blank)."""
     a = [v for v in arr if v != 0]
     inv = 0
     for i in range(len(a)):
@@ -55,7 +68,7 @@ def count_inversions(arr: List[int]) -> int:
 
 
 def blank_row_from_bottom(board: List[List[int]]) -> int:
-    # 1-based index from bottom
+    """Return 1-based blank row index counting upward from bottom."""
     for y in range(ROWS - 1, -1, -1):
         for x in range(COLS):
             if board[y][x] == 0:
@@ -64,22 +77,27 @@ def blank_row_from_bottom(board: List[List[int]]) -> int:
 
 
 def is_solved(board: List[List[int]]) -> bool:
+    """Return True if tiles are in ascending order with blank at end."""
     return flatten(board) == list(range(1, COLS * ROWS)) + [0]
 
 
 def is_solvable(board: List[List[int]]) -> bool:
+    """Return True if board configuration is solvable.
+
+    For even width (4): solvable iff (blank row from bottom is odd AND inversions even)
+    OR (blank row from bottom is even AND inversions odd).
+    (For odd widths, which we don't use here, inversion count must be even.)
+    """
     arr = flatten(board)
     inv = count_inversions(arr)
     blank_from_bottom = blank_row_from_bottom(board)
-    # For even grid width (4): solvable iff (blank_from_bottom is odd and inversions even)
-    # or (blank_from_bottom is even and inversions odd)
     if COLS % 2 == 0:
         return (blank_from_bottom % 2 == 1 and inv % 2 == 0) or (blank_from_bottom % 2 == 0 and inv % 2 == 1)
-    # For odd width (not used here): inversions must be even
     return inv % 2 == 0
 
 
 def random_solvable_board() -> List[List[int]]:
+    """Generate a random solvable puzzle board not already solved."""
     while True:
         nums = list(range(1, COLS * ROWS)) + [0]
         random.shuffle(nums)
@@ -89,6 +107,7 @@ def random_solvable_board() -> List[List[int]]:
 
 
 def main() -> None:
+    """Create window, initialize puzzle state, wire controls, run game loop."""
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
@@ -108,15 +127,19 @@ def main() -> None:
     board: List[List[int]] = [[0 for _ in range(COLS)] for _ in range(ROWS)]
     solving = {"active": False}
     move_state = {"count": 0}
+
     def update_status() -> None:
+        """Refresh move count in status bar."""
         try:
             pad.status_bar = f"Moves: {move_state['count']}"
         except Exception:
             pass
-    gen_moves: List[Tuple[int, int]] = []  # sequence of blank moves used to generate board (dx, dy)
-    user_moves: List[Tuple[int, int]] = []  # sequence of blank moves the user made since generation
+
+    gen_moves: List[Tuple[int, int]] = []  # blank displacements building shuffle
+    user_moves: List[Tuple[int, int]] = []  # blank displacements from player actions
 
     def update_ui() -> None:
+        """Redraw tiles (offset by +1 row due to control row)."""
         for y in range(ROWS):
             for x in range(COLS):
                 el = pad[x, y + 1]  # type: ignore[index]
@@ -130,6 +153,7 @@ def main() -> None:
                 el.font_size = FONT_SIZE
 
     def neighbors(x: int, y: int) -> List[Coord]:
+        """Return list of valid neighbor coordinates (4-directional)."""
         out: List[Coord] = []
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nx, ny = x + dx, y + dy
@@ -138,6 +162,7 @@ def main() -> None:
         return out
 
     def find_blank() -> Coord:
+        """Locate coordinates of blank (0)."""
         for yy in range(ROWS):
             for xx in range(COLS):
                 if board[yy][xx] == 0:
@@ -145,6 +170,7 @@ def main() -> None:
         return (0, 0)
 
     def move_blank(dx: int, dy: int) -> bool:
+        """Swap blank with neighbor in direction (dx,dy); return success."""
         bx, by = find_blank()
         nx, ny = bx + dx, by + dy
         if 0 <= nx < COLS and 0 <= ny < ROWS:
@@ -152,34 +178,21 @@ def main() -> None:
             update_ui()
             return True
         return False
-    # Keyboard movement support (arrow keys & WASD) moving TILES, not the blank.
-    # Concept: Pressing Up moves the tile ABOVE the blank up (blank moves down internally).
+
     def key_slide(tile_dx: int, tile_dy: int) -> None:
+        """Slide tile toward blank using keyboard (tile movement vector)."""
         if solving["active"]:
             return
-        # Tile movement direction (tile_dx, tile_dy); blank must be opposite side.
         bx, by = find_blank()
-        tx, ty = bx - tile_dx, by - tile_dy  # tile position that will move into blank
+        tx, ty = bx - tile_dx, by - tile_dy
         if 0 <= tx < COLS and 0 <= ty < ROWS:
-            # Perform swap: tile moves (tile_dx, tile_dy); blank displacement is opposite
             board[by][bx], board[ty][tx] = board[ty][tx], board[by][bx]
-            # Record blank displacement (for solve undo logic) which is (-tile_dx, -tile_dy)
             user_moves.append((-tile_dx, -tile_dy))
             move_state["count"] += 1
             update_status()
             update_ui()
 
-    # Map keys to tile movement vectors
-    keymap_tiles = {
-        "Up": (0, -1),
-        "w": (0, -1),
-        "Down": (0, 1),
-        "s": (0, 1),
-        "Left": (-1, 0),
-        "a": (-1, 0),
-        "Right": (1, 0),
-        "d": (1, 0),
-    }
+    keymap_tiles = {"Up": (0, -1), "w": (0, -1), "Down": (0, 1), "s": (0, 1), "Left": (-1, 0), "a": (-1, 0), "Right": (1, 0), "d": (1, 0)}
     for ks, (tdx, tdy) in keymap_tiles.items():
         try:
             pad.root.bind_all(f"<KeyPress-{ks}>", lambda e, tdx=tdx, tdy=tdy: key_slide(tdx, tdy))
@@ -187,13 +200,12 @@ def main() -> None:
             pass
 
     def try_move(x: int, y: int) -> None:
+        """Slide clicked tile into blank if adjacent."""
         if solving["active"]:
             return
-        # If (x,y) is adjacent to the blank (0), swap and record user move direction (blank displacement)
         bx, by = find_blank()
         for nx, ny in neighbors(x, y):
             if board[ny][nx] == 0:
-                # blank moves from (nx,ny) to (x,y)
                 dx, dy = x - nx, y - ny
                 board[ny][nx], board[y][x] = board[y][x], board[ny][nx]
                 user_moves.append((dx, dy))
@@ -203,25 +215,22 @@ def main() -> None:
                 return
 
     def on_click(_el, x: int, y: int) -> None:
-        # Adjust for control row offset
+        """Handle mouse click (y offset by control row)."""
         if y == 0:
-            return  # control handled separately
+            return
         try_move(x, y - 1)
-        # Optional: detect solved
-        # if is_solved(board):
-        #     pass  # could flash or show a dialog
 
-    # Solve animation: undo user moves then generator moves
     def animate_undo(moves: List[Tuple[int, int]], idx: int, done_cb) -> None:
+        """Recursively undo moves list (blank displacements) in reverse order."""
         if idx < 0:
             done_cb()
             return
         dx, dy = moves[idx]
-        # Undo by moving blank opposite direction
         move_blank(-dx, -dy)
         pad.root.after(100, lambda: animate_undo(moves, idx - 1, done_cb))
 
     def do_solve() -> None:
+        """Animate solution by undoing user moves then generation moves."""
         if solving["active"]:
             return
         solving["active"] = True
@@ -233,25 +242,19 @@ def main() -> None:
             solving["active"] = False
             user_moves.clear()
             gen_moves.clear()
-            # After solve, board is solved and histories cleared
 
         animate_undo(user_moves, len(user_moves) - 1, after_user)
 
-    # Control handlers
     def new_game() -> None:
+        """Shuffle board via random blank moves (recording path)."""
         if solving["active"]:
             return
-        # Start from solved
         nums = list(range(1, COLS * ROWS)) + [0]
         for y in range(ROWS):
             for x in range(COLS):
                 board[y][x] = nums[y * COLS + x]
-        gen_moves.clear()
-        user_moves.clear()
-        move_state["count"] = 0
-        update_status()
-        update_ui()
-        # Perform random blank moves, avoiding immediate backtrack
+        gen_moves.clear(); user_moves.clear(); move_state["count"] = 0
+        update_status(); update_ui()
         last = (0, 0)
         steps = 80
         for _ in range(steps):
@@ -267,8 +270,7 @@ def main() -> None:
             move_blank(dx, dy)
             gen_moves.append((dx, dy))
             last = (dx, dy)
-        # Ensure not already solved (unlikely); if solved, reshuffle again once
-        if is_solved(board):
+        if is_solved(board):  # extremely rare; reshuffle smaller loop
             last = (0, 0)
             gen_moves.clear()
             for _ in range(50):
@@ -284,23 +286,15 @@ def main() -> None:
                 move_blank(dx, dy)
                 gen_moves.append((dx, dy))
                 last = (dx, dy)
-        # Shuffling doesn't count as moves; status already reset.
         update_status()
 
-    # Wire handlers for puzzle grid and control row
     for y in range(ROWS):
         for x in range(COLS):
             pad[x, y + 1].on_click = on_click  # type: ignore[index]
+    pad[0, 0].on_click = lambda _e, _x, _y: new_game(); pad[0, 0].text = "New"
+    pad[2, 0].on_click = lambda _e, _x, _y: do_solve(); pad[2, 0].text = "Solve"
 
-    # Control buttons at (0,0) and (1,0)
-    pad[0, 0].on_click = lambda _e, _x, _y: new_game()
-    pad[0, 0].text = "New"
-    pad[2, 0].on_click = lambda _e, _x, _y: do_solve()
-    pad[2, 0].text = "Solve"
-
-    update_ui()
-    new_game()
-    pad.run()
+    update_ui(); new_game(); pad.run()
 
 
 if __name__ == "__main__":

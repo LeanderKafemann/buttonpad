@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-# Pixel Editor using ButtonPad
-# - 24 x 24 grid of buttons
-# - Clicking a button cycles through a palette of basic colors
-# - Window is resizable; h_gap and v_gap are 0
+"""Simple pixel art editor using ButtonPad.
+
+How it works:
+    * 24 x 24 grid; each cell stores an index into a color palette.
+    * Clicking a cell cycles its color to the next palette entry (wrap-around).
+    * A tooltip (if supported) shows the cell's coordinates.
+
+Beginner notes:
+    * The board is a 2D list of ints; each int is an index in PALETTE.
+    * set_cell() centralizes updating the data structure AND GUI element.
+    * cycle_color() just computes next index and calls set_cell().
+"""
 
 from typing import List
 
@@ -38,12 +46,13 @@ PALETTE: List[str] = [
 
 
 def build_layout() -> str:
-    # Backtick ensures no-merge so each button is distinct
+    """Return a layout of independent buttons (each token is a backtick)."""
     row = ",".join(["`"] * COLS)
     return "\n".join([row for _ in range(ROWS)])
 
 
 def main() -> None:
+    """Create window, initialize board, wire handlers, and start event loop."""
     layout = build_layout()
     pad = buttonpad.ButtonPad(
         layout=layout,
@@ -59,26 +68,25 @@ def main() -> None:
         resizable=True,
     )
 
-    # Track palette index per cell
-    board: List[List[int]] = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+    board: List[List[int]] = [[0 for _ in range(COLS)] for _ in range(ROWS)]  # palette indices
 
     def set_cell(x: int, y: int, idx: int) -> None:
+        """Store palette index for (x,y) and repaint its background."""
         board[y][x] = idx % len(PALETTE)
         el = pad[x, y]  # type: ignore[index]
         el.background_color = PALETTE[board[y][x]]
         el.text = ""
 
     def cycle_color(el, x: int, y: int) -> None:
+        """Advance this cell's palette index by one (wrap)."""
         idx = (board[y][x] + 1) % len(PALETTE)
         set_cell(x, y, idx)
 
-    # Initialize grid and handlers
     for y in range(ROWS):
         for x in range(COLS):
             set_cell(x, y, 0)
             pad[x, y].on_click = cycle_color  # type: ignore[index]
-            # Tooltip shows coordinates
-            try:
+            try:  # optional tooltip with coordinates
                 pad[x, y].tooltip = f"{x}, {y}"  # type: ignore[index]
             except Exception:
                 pass
