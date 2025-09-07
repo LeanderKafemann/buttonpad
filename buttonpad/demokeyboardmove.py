@@ -54,7 +54,7 @@ def main() -> None:
         h_gap=4,
         v_gap=4,
         border=8,
-        title="Keyboard Move Demo",
+        title="Keyboard Movement Demo",
         default_bg_color=BTN_BG,
         default_text_color=BTN_FG,
         window_color=WINDOW_BG,
