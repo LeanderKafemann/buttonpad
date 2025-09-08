@@ -40,7 +40,7 @@ __all__ = [
 
 # All element callbacks receive: (element_object, x, y)
 BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox", "BPImage"]
-BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
+BPCallbackType = Optional[Callable[["BPWidgetType", int, int], None]]
 
 # Track the last-created Tk root so we can restore focus after dialogs
 _last_root: Optional[tk.Tk] = None
@@ -128,9 +128,9 @@ class _BPBase:
             self._text_color = "black"
 
         # Callback hooks (ButtonPad will invoke these)
-        self._on_click: BPCallback = None
-        self._on_enter: BPCallback = None
-        self._on_exit: BPCallback = None
+        self._on_click: BPCallbackType = None
+        self._on_enter: BPCallbackType = None
+        self._on_exit: BPCallbackType = None
 
         # Filled in by ButtonPad when placed
         self._pos = (0, 0)
@@ -233,29 +233,29 @@ class _BPBase:
 
     # ----- unified click handler (set by user; fired by ButtonPad) -----
     @property
-    def on_click(self) -> BPCallback:
+    def on_click(self) -> BPCallbackType:
         return self._on_click
 
     @on_click.setter
-    def on_click(self, func: BPCallback) -> None:
+    def on_click(self, func: BPCallbackType) -> None:
         self._on_click = func
 
     # ----- unified enter handler -----
     @property
-    def on_enter(self) -> BPCallback:  # type: ignore[override]
+    def on_enter(self) -> BPCallbackType:  # type: ignore[override]
         return self._on_enter
 
     @on_enter.setter
-    def on_enter(self, func: BPCallback) -> None:  # type: ignore[override]
+    def on_enter(self, func: BPCallbackType) -> None:  # type: ignore[override]
         self._on_enter = func
 
     # ----- unified exit handler -----
     @property
-    def on_exit(self) -> BPCallback:  # type: ignore[override]
+    def on_exit(self) -> BPCallbackType:  # type: ignore[override]
         return self._on_exit
 
     @on_exit.setter
-    def on_exit(self, func: BPCallback) -> None:  # type: ignore[override]
+    def on_exit(self, func: BPCallbackType) -> None:  # type: ignore[override]
         self._on_exit = func
 
 
