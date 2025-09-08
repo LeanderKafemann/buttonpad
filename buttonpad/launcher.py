@@ -40,6 +40,7 @@ EXAMPLES: List[Tuple[str, str]] = [
     ("Stopwatch", "stopwatch.py"),
     ("Tic Tac Toe", "tictactoe.py"),
     ("TTT vs CPU", "tictactoevscpu.py"),
+    ("8 Queens", "eightqueens.py"),
     ("2048", "twentyfortyeight.py"),
 ]  # 26 entries; remaining 4 cells left blank
 
