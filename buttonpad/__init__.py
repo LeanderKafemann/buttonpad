@@ -542,6 +542,7 @@ class BPImage(_BPBase):
                 from PIL import Image  # type: ignore
                 self._pil_image = Image.open(path)
             except Exception:
+                warnings.warn('Pillow is not installed. ButtonPad will not support image scaling.')
                 # fallback direct PhotoImage (no scaling)
                 try:
                     self._photo = tk.PhotoImage(file=str(path))
@@ -563,7 +564,7 @@ class BPImage(_BPBase):
         try:
             from PIL import Image, ImageTk  # type: ignore
         except Exception:
-            return
+            warnings.warn('Pillow is not installed. ButtonPad will not support image scaling.')
         fw, fh = self._frame_size  # fallback frame size computed at placement or last resize
         try:
             # Use actual widget size if it looks realized (>2px); otherwise fallback to stored frame size
