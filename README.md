@@ -2,59 +2,47 @@
 
 ButtonPad lets you declare a grid of buttons, labels, and text boxes using a compact, CSV-like layout string and control it with simple Python callbacks. It’s built on the Tkinter standard library and works on Windows, macOS, and Linux. On macOS, it can optionally use tkmacosx for better button color support.
 
+(THIS CODE AND DOCUMENTATION IS STILL UNDER REVIEW AND CAN CHANGE AT ANY TIME.)
+
 Key features:
 • Pure-Python, no custom widget subclasses you must learn — just layout + callbacks
-• CSV-like layout string with auto-merge of identical adjacent cells (blank/whitespace-only lines are ignored)
+• CSV-like layout string with auto-merge of identical adjacent cells
 • Per-cell click handlers plus hover enter/exit callbacks and tooltips
 • Global key mapping AND per-button / per-label hotkeys (BPButton.hotkey / BPLabel.hotkey)
 • Optional status bar (set/get via pad.status_bar) with color customization
 • Optional menubar definition with automatic accelerator binding
-• Easy runtime updates and direct element access via pad[x, y]
 • Adjustable per-column/row sizing, gaps, margin, and resizable windows
-• Re-exports pymsgbox dialogs: alert, confirm, prompt, password
-• Non-rectangular layouts are detected and warned about with row cell counts
+• PyMsgBox dialog boxes: `alert()`, `confirm()`, `prompt()`, `password()`
 
 
-## Quick start
+## Quick Start with the Launcher
+
+Run `python -m buttonpad` to run the launcher program to view several demo programs and games made with Buttonpad.
+
+## Example Code
 
 ```python
-import ButtonPad as buttonpad  # or `import buttonpad as buttonpad` if installed that way
+# Phone keypad example
+import buttonpad
 
-layout = """
-A,B,C
-Play,Play,Play   
-"Status",[Name]
-""".strip()
-
-pad = buttonpad.ButtonPad(
-	layout=layout,
-	cell_width=80,   # int or per-column list
-	cell_height=50,  # int or per-row list
-	h_gap=4,
-	v_gap=4,
-	border=8,
-	title="ButtonPad Demo",
+# Multi-line string defines 4 rows of 3 cells each (a 3x4 grid).
+bp = buttonpad.ButtonPad(
+	"""1,2,3
+	4,5,6
+	7,8,9
+	*,0,#""",
+	cell_width=70,
+	cell_height=100,
+	h_gap=20,
+	v_gap=10,
+	border=40,
+	default_bg_color='#ff4444',
+	default_text_color='darkblue',
+	window_color='green',	
+	title="Telephone Keypad Demo",
 )
 
-# Access elements by Cartesian index: pad[x, y]
-pad[0, 0].text = "Left"          # update button text at (0,0)
-pad[0, 0].tooltip = "I am (0,0)"  # show a small tooltip on hover
-pad[1, 0].background_color = "#4477ee"
-pad[1, 0].text_color = "white"
-
-def on_click(el, x, y):
-	pad[0, 2].text = f"Clicked ({x},{y})"
-
-# Assign handlers
-pad[0, 0].on_click = on_click
-pad[1, 0].on_click = on_click
-pad[2, 0].on_click = on_click
-pad[0, 1].on_click = lambda el, x, y: pad.alert("Play pressed")
-
-# Keyboard mapping (press '1' to trigger cell (0,0))
-pad.map_key("1", 0, 0)
-
-pad.run()
+bp.run()
 ```
 
 
@@ -127,7 +115,7 @@ Instance methods and properties:
 Re-exported dialogs (from pymsgbox): `alert`, `confirm`, `prompt`, `password`.
 
 
-### Element wrappers
+### Widgets
 
 All wrappers expose:
 - `text: str` — get/set the visible text.
@@ -171,11 +159,4 @@ Play,Play,Play
 
 - macOS: For fully colorable buttons, install `tkmacosx`. When unavailable, ButtonPad falls back to the system `tk.Button` (colors may not update on some macOS builds). You’ll see a console message suggesting: `pip install tkmacosx`.
 - Dialog helpers use `pymsgbox` and are re-exported for convenience.
-
-
-## Examples
-
-See the `examples/` folder for small apps built with ButtonPad: games (Connect Four, Simon, Lights Out, Tic Tac Toe, 2048, etc.), utilities, and demos of merged controls, menus, status bars, hover callbacks, and hotkeys.
-
-There is also a `launcher.py` script that presents a ButtonPad-based menu to run the included examples.
 

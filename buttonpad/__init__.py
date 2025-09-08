@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any, TYPE_CHECKING
 import tkinter as tk
 from pymsgbox import (
@@ -27,6 +28,7 @@ __all__ = [
     "BPButton",
     "BPLabel",
     "BPTextBox",
+    "BPImage",
     # Re-exported pymsgbox helpers
     "alert",
     "confirm",
@@ -37,7 +39,7 @@ __all__ = [
 # ---------- element wrappers ----------
 
 # All element callbacks receive: (element_object, x, y)
-BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox"]
+BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox", "BPImage"]
 BPCallback = Optional[Callable[["BPWidgetType", int, int], None]]
 
 # Track the last-created Tk root so we can restore focus after dialogs
@@ -447,7 +449,7 @@ class BPTextBox(_BPBase):
             pass
 
     # Override text property to work with tk.Text (multiline)
-    @property
+    @property  # type: ignore[override]
     def text(self) -> str:  # type: ignore[override]
         try:
             self._text = self.widget.get("1.0", "end-1c")  # omit trailing newline
@@ -456,7 +458,7 @@ class BPTextBox(_BPBase):
         return self._text
 
     @text.setter  # type: ignore[override]
-    def text(self, value: str) -> None:
+    def text(self, value: str) -> None:  # type: ignore[override]
         self._text = value or ""
         try:
             self.widget.delete("1.0", "end")
@@ -465,12 +467,143 @@ class BPTextBox(_BPBase):
         except Exception:
             pass
 
+class BPImage(_BPBase):
+    """Image widget wrapper created from IMG_* tokens in the layout.
+
+    Usage in layout:
+        IMG_A, IMG_A  -> a 2x1 merged image frame (merging identical tokens works like buttons/labels)
+
+    image property accepts:
+      - str / Path: filename to load
+      - Pillow Image object (if Pillow installed)
+
+        Stretch behavior:
+            - stretch=False (default): scale image (down or up) to the largest size that fits within the frame while
+                preserving aspect ratio.
+            - stretch=True: forcibly resize image to exactly the frame size (aspect ratio may change).
+
+    Pillow is optional. Without Pillow only formats supported directly by tk.PhotoImage (e.g. GIF/PNG on many builds) can load,
+    and no scaling occurs (unless Pillow is present). Tooltips, background_color, and on_click/on_enter/on_exit are supported
+    the same as other elements.
+    """
+
+    def __init__(self, widget: tk.Label, frame_width: int, frame_height: int):
+        super().__init__(widget, text="")
+        self._frame_size = (frame_width, frame_height)
+        self._image_source: Any = None
+        self._pil_image: Any = None
+        self._photo: Optional[tk.PhotoImage] = None
+        self._stretch: bool = False
+        try:
+            widget.configure(bg=self._background_color)
+        except Exception:
+            pass
+
+    # stretch property
+    @property
+    def stretch(self) -> bool:
+        return self._stretch
+
+    @stretch.setter
+    def stretch(self, value: bool) -> None:
+        self._stretch = bool(value)
+        self._refresh_render()
+
+    # image property
+    @property
+    def image(self) -> Any:
+        return self._image_source
+
+    @image.setter
+    def image(self, value: Any) -> None:
+        self._image_source = value
+        self._load_source(value)
+        # Immediate attempt (may be 1x1 before geometry); then schedule another after idle
+        self._refresh_render()
+        try:
+            self.widget.after_idle(self._refresh_render)
+        except Exception:
+            pass
+
+    def _load_source(self, value: Any) -> None:
+        self._pil_image = None
+        if value is None:
+            self._photo = None
+            try:
+                self.widget.configure(image="")
+            except Exception:
+                pass
+            return
+        if isinstance(value, (str, Path)):
+            path = Path(str(value))
+            if not path.exists():
+                return
+            try:
+                from PIL import Image  # type: ignore
+                self._pil_image = Image.open(path)
+            except Exception:
+                # fallback direct PhotoImage (no scaling)
+                try:
+                    self._photo = tk.PhotoImage(file=str(path))
+                    self.widget.configure(image=self._photo)
+                except Exception:
+                    pass
+            return
+        # Attempt treat as PIL Image object
+        try:
+            from PIL import Image  # type: ignore
+            if hasattr(value, "size") and getattr(value.__class__, "__name__", "") == "Image":
+                self._pil_image = value
+        except Exception:
+            pass
+
+    def _refresh_render(self) -> None:
+        if self._pil_image is None:
+            return
+        try:
+            from PIL import Image, ImageTk  # type: ignore
+        except Exception:
+            return
+        fw, fh = self._frame_size  # fallback frame size computed at placement or last resize
+        try:
+            # Use actual widget size if it looks realized (>2px); otherwise fallback to stored frame size
+            cur_w = int(self.widget.winfo_width())
+            cur_h = int(self.widget.winfo_height())
+            if cur_w >= 3 and cur_h >= 3:  # treat tiny (1x1 / 2x2) as not yet laid out
+                fw, fh = cur_w, cur_h
+        except Exception:
+            pass
+        img = self._pil_image
+        iw, ih = img.size
+        if self._stretch:
+            target_w, target_h = max(1, fw), max(1, fh)
+        else:
+            # Proportionally fit inside frame (allow upscaling as needed)
+            if iw <= 0 or ih <= 0:
+                return
+            scale = min(fw / iw, fh / ih)
+            target_w = max(1, int(round(iw * scale)))
+            target_h = max(1, int(round(ih * scale)))
+        try:
+            resized = img.resize((target_w, target_h), Image.LANCZOS)
+        except Exception:
+            resized = img
+        try:
+            self._photo = ImageTk.PhotoImage(resized)
+            self.widget.configure(image=self._photo)
+        except Exception:
+            pass
+
+    def _on_container_resize(self, width: int, height: int) -> None:
+        self._frame_size = (width, height)
+        self._refresh_render()
+
 
 # ---------- layout & parsing ----------
 
 @dataclass
 class _Spec:
-    kind: str  # "button" | "label" | "entry"
+    kind: str  # "button" | "label" | "entry" | "image"
     text: str  # for entry, this is initial text
     anchor: Optional[str] = None
     no_merge: bool = False
@@ -1144,19 +1277,11 @@ class ButtonPad:
         )
         frame.grid_propagate(False)
 
-        # Create the actual widget and make it fill the frame (no internal margins)
         if spec.kind == "button":
-            # Choose button class depending on platform and availability
             ButtonCls = MacButton if (sys.platform == "darwin" and MacButton is not None) else tk.Button
-
-            # tkmacosx extras (optional aesthetics)
             extra_kwargs = {}
             if ButtonCls is MacButton:
-                extra_kwargs.update({
-                    "borderless": 1,
-                    "focuscolor": "",
-                })
-
+                extra_kwargs.update({"borderless": 1, "focuscolor": ""})
             w = ButtonCls(
                 frame,
                 text=spec.text,
@@ -1173,12 +1298,10 @@ class ButtonPad:
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
             element: BPWidgetType = BPButton(w, text=spec.text)
-            # Back-reference so BPButton.hotkey can access the parent pad
             try:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 pass
-            # Click via ButtonPad dispatcher
             w.configure(command=lambda e=element: self._fire_click(e))
 
         elif spec.kind == "label":
@@ -1198,7 +1321,6 @@ class ButtonPad:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 pass
-            # Click dispatch (optional for labels)
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         elif spec.kind == "entry":
@@ -1215,25 +1337,59 @@ class ButtonPad:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 pass
-            # Click dispatch (optional for text areas)
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
+        elif spec.kind == "image":
+            w = tk.Label(
+                frame,
+                text="",
+                bg=self.default_background_color,
+                fg=self.default_text_color,
+                anchor="center",
+                padx=0,
+                pady=0,
+                highlightthickness=0,
+                bd=0,
+            )
+            w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
+            element = BPImage(w, frame_width=width, frame_height=height)
+            try:
+                element._buttonpad = self  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            try:
+                frame.bind("<Configure>", lambda evt, e=element: e._on_container_resize(evt.width, evt.height))
+            except Exception:
+                pass
+            # Auto-load image if token suffix references an existing file.
+            try:
+                token = spec.text  # e.g. IMG_cat.png
+                if token.startswith("IMG_"):
+                    fname = token[4:].strip()
+                    if fname:
+                        p = Path(fname)
+                        if not p.exists():
+                            # Also try relative to this module's directory
+                            alt = Path(__file__).resolve().parent / fname
+                            if alt.exists():
+                                p = alt
+                        if p.exists():
+                            try:
+                                element.image = p
+                            except Exception:
+                                pass
+            except Exception:
+                pass
         else:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
-        # Record this element's *top-left* position
         element._pos = (c, r)
-
-        # Hover enter/exit handlers (bind here so we know the element & its coords)
         w.bind("<Enter>", lambda evt, e=element: self._fire_enter(e))
         w.bind("<Leave>", lambda evt, e=element: self._fire_exit(e))
-
-        # Map every cell in this rectangle to the created element (keyed by x,y)
         for rr in range(r, r + rowspan):
             for cc in range(c, c + colspan):
                 self._cell_to_element[(cc, rr)] = element
-
-        # keep references for later destruction
         self._widgets.append(frame)
         self._widgets.append(element.widget)
 
@@ -1268,6 +1424,11 @@ class ButtonPad:
                 if tok.startswith("[") and tok.endswith("]"):
                     text = tok[1:-1]
                     row.append(_Spec(kind="entry", text=text, no_merge=no_merge))
+                    continue
+
+                # image token (IMG_*)
+                if tok.startswith("IMG_"):
+                    row.append(_Spec(kind="image", text=tok, no_merge=no_merge))
                     continue
 
                 # plain button

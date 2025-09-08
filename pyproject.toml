@@ -1,13 +1,16 @@
 [project]
 name = "ButtonPad"
-version = "0.2.0"
+version = "0.2.2"
 description = "A simple Tkinter-based GUI framework for making a grid of buttons, text boxes, and labels."
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Al Sweigart", email = "al@inventwithpython.com" }]
 requires-python = ">=3.8"
 dependencies = [
 	"tkmacosx==1.0.3; sys_platform == 'darwin'",
+	"pymsgbox>=1.0.9",
 ]
+readme = "README.md"
 
 [build-system]
-requires = ["setuptools>=61.0.0", "pymsgbox"]
+# Only build tools go here (runtime deps belong in [project].dependencies).
+requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
