@@ -1363,23 +1363,30 @@ class ButtonPad:
                 frame.bind("<Configure>", lambda evt, e=element: e._on_container_resize(evt.width, evt.height))
             except Exception:
                 pass
-            # Auto-load image if token suffix references an existing file.
+            # Auto-load image if token suffix references an existing file (absolute, ~, or relative).
             try:
-                token = spec.text  # e.g. IMG_cat.png
+                token = spec.text  # e.g. IMG_cat.png or IMG_/abs/path/to/img.png or IMG_~/pic.png
                 if token.startswith("IMG_"):
                     fname = token[4:].strip()
                     if fname:
-                        p = Path(fname)
-                        if not p.exists():
-                            # Also try relative to this module's directory
-                            alt = Path(__file__).resolve().parent / fname
-                            if alt.exists():
-                                p = alt
-                        if p.exists():
-                            try:
-                                element.image = p
-                            except Exception:
-                                pass
+                        # Expand ~ to home directory if present
+                        expanded = str(Path(fname).expanduser())
+                        p = Path(expanded)
+                        if p.is_absolute():
+                            # Absolute path (including ~ expanded): use as-is
+                            if p.exists():
+                                try:
+                                    element.image = p
+                                except Exception:
+                                    pass
+                        else:
+                            # Relative path: only try CWD
+                            cwd_p = Path.cwd() / expanded
+                            if cwd_p.exists():
+                                try:
+                                    element.image = cwd_p
+                                except Exception:
+                                    pass
             except Exception:
                 pass
         else:
