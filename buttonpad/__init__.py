@@ -61,25 +61,25 @@ def _refocus_root() -> None:
     except Exception:
         pass
 
-def alert(text: str = "", title: str = "PyMsgBox", button: str = "OK") -> str:  # type: ignore[override]
+def alert(text: str = "", title: str = "PyMsgBox", button: str = "OK") -> Optional[str]:  # type: ignore[override]
     """Wraps the PyMsgBox alert() function. Displays a dialogue box with text and an OK button."""
     result = _pymsgbox_alert(text=text, title=title, button=button)
     _refocus_root()
     return result
 
-def confirm(text: str = "", title: str = "PyMsgBox", buttons: Union[str, Sequence[str]] = ("OK", "Cancel")) -> str:  # type: ignore[override]
+def confirm(text: str = "", title: str = "PyMsgBox", buttons: Union[str, Sequence[str]] = ("OK", "Cancel")) -> Optional[str]:  # type: ignore[override]
     """Wraps the PyMsgBox confirm() function. Displays a dialogue box with text and OK/Cancel buttons."""
     result = _pymsgbox_confirm(text=text, title=title, buttons=buttons)
     _refocus_root()
     return result
 
-def prompt(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "") -> Optional[str]:  # type: ignore[override]
+def prompt(text: str = "", title: str = "PyMsgBox", default: str = "") -> Optional[str]:  # type: ignore[override]
     """Wraps the PyMsgBox prompt() function. Displays a dialogue box with text and an input field."""
     result = _pymsgbox_prompt(text=text, title=title, default=default)
     _refocus_root()
     return result
 
-def password(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "", mask: str = "*") -> Optional[str]:  # type: ignore[override]
+def password(text: str = "", title: str = "PyMsgBox", default: str = "", mask: str = "*") -> Optional[str]:  # type: ignore[override]
     """Wraps the PyMsgBox password() function. Displays a dialogue box with text and a masked password input field."""
     result = _pymsgbox_password(text=text, title=title, default=default, mask=mask)
     _refocus_root()
@@ -89,8 +89,17 @@ def password(text: str = "", title: str = "PyMsgBox", default: Optional[str] = "
 class _BPBase:
     """Base class for the BPButton, BPTextBox, and BPLabel classes."""
 
+    # Runtime-flexible types for Tk widgets and optionally imported PIL objects
+    _pos: Tuple[int, int]
+    _tooltip_text: Optional[str]
+    _tooltip_after: Optional[Union[int, str]]
+    _tooltip_window: Optional[tk.Toplevel]
+    _pil_image: Any
+    _photo: Any
+    _anchor: str
+
     def __init__(self, widget: tk.Widget, text: str = ""):
-        self.widget = widget
+        self.widget: tk.Widget = widget
         self._font_name = "TkDefaultFont"
         self._font_size = 12
 
@@ -103,14 +112,14 @@ class _BPBase:
         if isinstance(widget, tk.Label) or isinstance(widget, tk.Entry):
             # Attempt to use a textvariable for live updates
             try:
-                self.widget.configure(textvariable=self._textvar)
+                self.widget.configure(textvariable=self._textvar) # pyright: ignore[reportCallIssue]
                 self._uses_textvariable = True
             except tk.TclError:
                 self._uses_textvariable = False
         if not self._uses_textvariable:
             # Fallback for widgets without textvariable (e.g. tkmacosx buttons)
             try:
-                self.widget.configure(text=text)
+                self.widget.configure(text=text) # pyright: ignore[reportCallIssue]
             except tk.TclError:
                 pass
                 #assert False # For now, all widgets should support text configuration (BPButton, BPTextBox, and BPLabel) so this should never happen.
@@ -126,7 +135,8 @@ class _BPBase:
             self._text_color = widget.cget("fg")
         except tk.TclError:
             self._text_color = "black"
-
+        # text/label/button anchor (left/center/right semantics)
+        self._anchor = "center"
         # Callback hooks (ButtonPad will invoke these)
         self._on_click: BPCallbackType = None
         self._on_enter: BPCallbackType = None
@@ -135,9 +145,13 @@ class _BPBase:
         # Filled in by ButtonPad when placed
         self._pos = (0, 0)
         # Tooltip data (managed by ButtonPad on hover)
-        self._tooltip_text: Optional[str] = None
-        self._tooltip_after: Optional[int] = None
-        self._tooltip_window: Optional[tk.Toplevel] = None
+        self._tooltip_text = None
+        # Tk's `after` can return int or str depending on Tcl/Tk build; accept both
+        self._tooltip_after = None
+        self._tooltip_window = None
+        # Optional Pillow runtime storage
+        self._pil_image = None
+        self._photo = None
 
     # ----- text (robust across tk / tkmacosx) -----
     @property
@@ -167,7 +181,7 @@ class _BPBase:
                 pass
         # Fallback for widgets without textvariable (e.g., some tkmacosx buttons)
         try:
-            self.widget.configure(text=value)
+            self.widget.configure(text=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             pass
 
@@ -181,6 +195,41 @@ class _BPBase:
     def tooltip(self, value: Optional[str]) -> None:
         self._tooltip_text = value or None
 
+    # ----- anchor (alignment for labels, buttons, and text boxes) -----
+    @property
+    def anchor(self) -> str:
+        return getattr(self, "_anchor", "center")
+
+    @anchor.setter
+    def anchor(self, value: Optional[str]) -> None:
+        # Normalize value
+        v = (value or "").strip()
+        if not v:
+            v = "center"
+        self._anchor = v
+        # Apply to widgets that support anchor (Label/Button)
+        try:
+            try:
+                self.widget.configure(anchor=v) # pyright: ignore[reportCallIssue]
+            except Exception:
+                pass
+            # For Text widgets, use tag justification
+            if isinstance(self.widget, tk.Text):
+                just = "center"
+                lv = v.lower()
+                if lv in ("w", "left", "west"):
+                    just = "left"
+                elif lv in ("e", "right", "east"):
+                    just = "right"
+                try:
+                    # configure a persistent tag and apply to all text
+                    self.widget.tag_configure("bp_align", justify=just)
+                    self.widget.tag_add("bp_align", "1.0", "end")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # ----- colors -----
     @property
     def background_color(self) -> str:
@@ -190,7 +239,7 @@ class _BPBase:
     def background_color(self, value: str) -> None:
         self._background_color = value
         try:
-            self.widget.configure(bg=value)
+            self.widget.configure(bg=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             pass
 
@@ -202,7 +251,7 @@ class _BPBase:
     def text_color(self, value: str) -> None:
         self._text_color = value
         try:
-            self.widget.configure(fg=value)
+            self.widget.configure(fg=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             pass
 
@@ -227,7 +276,7 @@ class _BPBase:
 
     def _apply_font(self) -> None:
         try:
-            self.widget.configure(font=(self._font_name, self._font_size))
+            self.widget.configure(font=(self._font_name, self._font_size)) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             pass
 
@@ -348,7 +397,7 @@ class BPLabel(_BPBase):
     def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
         super().__init__(widget, text=text)
         self._anchor = anchor
-        widget.configure(anchor=anchor)
+        widget.configure(anchor=anchor) # pyright: ignore[reportArgumentType]
         # hotkey strings (lowercased keysym strings) stored as immutable tuple; None means no hotkeys.
         self._hotkeys: Optional[Tuple[str, ...]] = None
 
@@ -359,7 +408,7 @@ class BPLabel(_BPBase):
     @anchor.setter
     def anchor(self, value: str) -> None:
         self._anchor = value
-        self.widget.configure(anchor=value)
+        self.widget.configure(anchor=value) # pyright: ignore[reportCallIssue]
 
     # --- hotkey property (same semantics as BPButton.hotkey) ---
     @property
@@ -452,7 +501,7 @@ class BPTextBox(_BPBase):
     @property  # type: ignore[override]
     def text(self) -> str:  # type: ignore[override]
         try:
-            self._text = self.widget.get("1.0", "end-1c")  # omit trailing newline
+            self._text = self.widget.get("1.0", "end-1c")  # pyright: ignore[reportAttributeAccessIssue] # omit trailing newline
         except Exception:
             pass
         return self._text
@@ -461,11 +510,14 @@ class BPTextBox(_BPBase):
     def text(self, value: str) -> None:  # type: ignore[override]
         self._text = value or ""
         try:
-            self.widget.delete("1.0", "end")
+            self.widget.delete("1.0", "end") # pyright: ignore[reportAttributeAccessIssue]
             if self._text:
-                self.widget.insert("1.0", self._text)
+                self.widget.insert("1.0", self._text) # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             pass
+
+    # Note: For BPTextBox anchor, only horizontal alignments make sense.
+    # Valid values are 'w' (left), 'center', and 'e' (right).
 
 class BPImage(_BPBase):
     """Image widget wrapper created from IMG_* tokens in the layout.
@@ -530,7 +582,7 @@ class BPImage(_BPBase):
         if value is None:
             self._photo = None
             try:
-                self.widget.configure(image="")
+                self.widget.configure(image="") # pyright: ignore[reportCallIssue]
             except Exception:
                 pass
             return
@@ -546,7 +598,7 @@ class BPImage(_BPBase):
                 # fallback direct PhotoImage (no scaling)
                 try:
                     self._photo = tk.PhotoImage(file=str(path))
-                    self.widget.configure(image=self._photo)
+                    self.widget.configure(image=self._photo) # pyright: ignore[reportCallIssue]
                 except Exception:
                     pass
             return
@@ -591,7 +643,7 @@ class BPImage(_BPBase):
             resized = img
         try:
             self._photo = ImageTk.PhotoImage(resized)
-            self.widget.configure(image=self._photo)
+            self.widget.configure(image=self._photo) # pyright: ignore[reportCallIssue]
         except Exception:
             pass
 
@@ -613,19 +665,19 @@ class _Spec:
 class ButtonPad:
     def __init__(
         self,
-        layout: str,
-        cell_width: Union[int, Sequence[int]] = 60,
-        cell_height: Union[int, Sequence[int]] = 60,
-        h_gap: int = 0,
-        v_gap: int = 0,
-        window_color: str = '#f0f0f0',
-        default_bg_color: str = '#f0f0f0',
-        default_text_color: str = 'black',
-        title: str = 'ButtonPad App',
-        resizable: bool = True,
-        border: int = 0,
-        status_bar: Optional[str] = None,
-    menu: Optional[Dict[str, Any]] = None,
+        layout: str,  # """Button, 'Label 1', "Label 2", [Text Box], IMG_~/monalisa.png"""
+        cell_width: Union[int, Sequence[int]] = 60,  # width of each grid cell in pixels; int for all cells or list of ints for per-column widths
+        cell_height: Union[int, Sequence[int]] = 60,  # height of each grid cell in pixels; int for all cells or list of ints for per-row heights
+        h_gap: int = 0,  # horizontal gap between cells in pixels
+        v_gap: int = 0,  # vertical gap between cells in pixels
+        window_color: str = '#f0f0f0',  # background color of the window
+        default_bg_color: str = '#f0f0f0',  # default background color for widgets
+        default_text_color: str = 'black',  # default text color for widgets
+        title: str = 'ButtonPad App',  # window title
+        resizable: bool = True,  # whether the window is resizable
+        border: int = 0,  # padding between the grid and the window edge
+        status_bar: Optional[str] = None,  # initial status bar text; None means no status bar
+        menu: Optional[Dict[str, Any]] = None,  # menu definition dict; see menu property for details
     ):
         self._original_configuration = layout
         self._cell_width_input = cell_width
@@ -1303,7 +1355,7 @@ class ButtonPad:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 pass
-            w.configure(command=lambda e=element: self._fire_click(e))
+            w.configure(command=lambda e=element: self._fire_click(e)) # pyright: ignore[reportCallIssue]
 
         elif spec.kind == "label":
             w = tk.Label(
