@@ -679,7 +679,7 @@ class ButtonPad:
         status_bar: Optional[str] = None,  # initial status bar text; None means no status bar
         menu: Optional[Dict[str, Any]] = None,  # menu definition dict; see menu property for details
     ):
-        self._original_configuration = layout
+        self._layout = layout
         self._cell_width_input = cell_width
         self._cell_height_input = cell_height
         self.h_gap = int(h_gap)
@@ -759,6 +759,22 @@ class ButtonPad:
                 self.menu = menu
             except Exception:
                 pass
+
+    @property
+    def layout(self) -> str:
+        """Get or set the raw layout string used to build the grid.
+
+        Reading returns the original configuration string passed to the constructor
+        or last assigned value. Assigning a new string will rebuild the UI.
+        """
+        return self._layout
+
+    @layout.setter
+    def layout(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError("layout must be a string")
+        # use update() to rebuild from the new configuration
+        self.update(value)
 
     # ----- status bar API -----
     @property
@@ -1023,7 +1039,7 @@ class ButtonPad:
 
     def update(self, new_configuration: str) -> None:
         """Rebuild the layout with a new configuration string."""
-        self._original_configuration = new_configuration
+        self._layout = new_configuration
         # destroy old widgets except the container/root
         for w in self._widgets:
             try:
