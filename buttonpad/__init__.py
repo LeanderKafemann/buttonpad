@@ -3,6 +3,8 @@ TODO
 """
 from __future__ import annotations
 
+# TODO - be able to attach hotkeys to callback functions on the ButtonPad object.
+
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -141,6 +143,8 @@ class _BPBase:
         self._on_click: BPCallbackType = None
         self._on_enter: BPCallbackType = None
         self._on_exit: BPCallbackType = None
+        # hotkey strings (lowercased keysym strings) stored as immutable tuple; None means no hotkeys.
+        self._hotkeys: Optional[Tuple[str, ...]] = None
 
         # Filled in by ButtonPad when placed
         self._pos = (0, 0)
@@ -307,6 +311,70 @@ class _BPBase:
     def on_exit(self, func: BPCallbackType) -> None:  # type: ignore[override]
         self._on_exit = func
 
+    # ----- hotkey mapping (unified on base) -----
+    @property
+    def hotkey(self) -> Optional[Tuple[str, ...]]:
+        """Get or set keyboard hotkeys for this element.
+
+        Accepts None, a single string, or a tuple of strings. Keys are normalized to
+        lowercase keysyms and mapped via the owning ButtonPad to trigger this
+        element's on_click when pressed.
+        """
+        return self._hotkeys
+
+    @hotkey.setter
+    def hotkey(self, value: Optional[Union[str, Tuple[str, ...]]]) -> None:
+        # Remove existing mappings first (only those that point to this element's pos)
+        try:
+            pad = getattr(self, "_buttonpad", None)
+            if pad is not None and self._hotkeys:
+                to_delete = []
+                for k in self._hotkeys:
+                    pos = pad._keymap.get(k)
+                    if pos == getattr(self, "_pos", None):
+                        to_delete.append(k)
+                for k in to_delete:
+                    try:
+                        del pad._keymap[k]
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        if value is None:
+            self._hotkeys = None
+            return
+
+        # Normalize to iterable of strings; only allow str or tuple
+        if isinstance(value, str):
+            keys_iter = [value]
+        elif isinstance(value, tuple):
+            keys_iter = list(value)
+        else:
+            raise TypeError("hotkey must be a string, tuple of strings, or None")
+        seen = set()
+        ordered: List[str] = []
+        for k in keys_iter:
+            if not isinstance(k, str):
+                continue
+            kk = k.strip().lower()
+            if not kk or kk in seen:
+                continue
+            seen.add(kk)
+            ordered.append(kk)
+        self._hotkeys = tuple(ordered) if ordered else None
+
+        # Register with ButtonPad map_key if attached and positioned
+        try:
+            pad = getattr(self, "_buttonpad", None)
+            if pad is not None and self._hotkeys:
+                x, y = getattr(self, "_pos", (None, None))
+                if x is not None and y is not None:
+                    for k in self._hotkeys:
+                        pad.map_key(k, x, y)
+        except Exception:
+            pass
+
 
 
 class BPButton(_BPBase):
@@ -314,83 +382,7 @@ class BPButton(_BPBase):
         super().__init__(widget, text=text)
         # default click prints text (ButtonPad calls via dispatcher)
         self.on_click = lambda el, x, y: print(self.text)
-        # hotkey strings (lowercased keysym strings) stored as an immutable tuple; None means no hotkeys.
-        self._hotkeys: Optional[Tuple[str, ...]] = None
-
-    # --- hotkey property ---
-    @property
-    def hotkey(self) -> Optional[Tuple[str, ...]]:
-        """Set or get keyboard hotkeys for this button.
-
-        Accepts: None, a single string (Tk keysym), or a sequence of strings.
-        Internally stored as an immutable tuple of unique, lowercased keysyms
-        (first occurrence order preserved). Reassigning replaces previous
-        hotkeys; setting to None removes existing ones.
-        """
-        return self._hotkeys
-
-    @hotkey.setter
-    def hotkey(self, value: Optional[Union[str, Tuple[str, ...]]]) -> None:
-            """Assign keyboard hotkeys.
-
-            value may be:
-                - None: remove existing hotkeys
-                - str: a single keysym (e.g. "a", "Escape", "F5", "Shift-a")
-                - tuple[str, ...]: multiple independent hotkeys; each string is bound separately.
-
-            NOTE: A tuple ("Shift", "a") means either Shift OR a will trigger, *not* the combination.
-            To represent a modified key you must pass a single string like "Shift-a".
-            """
-            # Remove existing mappings first
-            try:
-                pad = getattr(self, "_buttonpad", None)
-                if pad is not None and self._hotkeys:
-                    # Delete only keys that still map to this button's position
-                    to_delete = []
-                    for k in self._hotkeys:
-                        pos = pad._keymap.get(k)
-                        if pos == getattr(self, "_pos", None):
-                            to_delete.append(k)
-                    for k in to_delete:
-                        try:
-                            del pad._keymap[k]
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            if value is None:
-                self._hotkeys = None
-                return
-
-            # Normalize to iterable of strings; only allow str or tuple
-            if isinstance(value, str):
-                keys_iter = [value]
-            elif isinstance(value, tuple):
-                keys_iter = list(value)
-            else:
-                raise TypeError("hotkey must be a string, tuple of strings, or None")
-            seen = set()
-            ordered: List[str] = []
-            for k in keys_iter:
-                if not isinstance(k, str):
-                    continue
-                kk = k.strip().lower()
-                if not kk or kk in seen:
-                    continue
-                seen.add(kk)
-                ordered.append(kk)
-            self._hotkeys = tuple(ordered) if ordered else None
-
-            # Register with ButtonPad map_key
-            try:
-                if pad is not None and self._hotkeys:
-                    x, y = getattr(self, "_pos", (None, None))
-                    if x is not None and y is not None:
-                        for k in self._hotkeys:
-                            pad.map_key(k, x, y)
-            except Exception:
-                pass
+    # hotkeys are handled on _BPBase.hotkey
 
 
 class BPLabel(_BPBase):
@@ -398,8 +390,7 @@ class BPLabel(_BPBase):
         super().__init__(widget, text=text)
         self._anchor = anchor
         widget.configure(anchor=anchor) # pyright: ignore[reportArgumentType]
-        # hotkey strings (lowercased keysym strings) stored as immutable tuple; None means no hotkeys.
-        self._hotkeys: Optional[Tuple[str, ...]] = None
+    # hotkeys are handled on _BPBase.hotkey
 
     @property
     def anchor(self) -> str:
@@ -411,78 +402,7 @@ class BPLabel(_BPBase):
         self.widget.configure(anchor=value) # pyright: ignore[reportCallIssue]
 
     # --- hotkey property (same semantics as BPButton.hotkey) ---
-    @property
-    def hotkey(self) -> Optional[Tuple[str, ...]]:
-        """Set or get keyboard hotkeys for this label.
-
-        Accepts: None, a single string (Tk keysym), or a tuple of strings.
-        Internally stored as an immutable tuple of unique, lowercased keysyms
-        (first occurrence order preserved). Reassigning replaces previous
-        hotkeys; setting to None removes existing ones.
-        """
-        return self._hotkeys
-
-    @hotkey.setter
-    def hotkey(self, value: Optional[Union[str, Tuple[str, ...]]]) -> None:
-            """Assign keyboard hotkeys.
-
-            value may be:
-                - None: remove existing hotkeys
-                - str: a single keysym (e.g. "a", "Escape", "F5", "Shift-a")
-                - tuple[str, ...]: multiple independent hotkeys; each string is bound separately.
-
-            NOTE: A tuple ("Shift", "a") means either Shift OR a will trigger, *not* the combination.
-            To represent a modified key you must pass a single string like "Shift-a".
-            """
-            # Remove existing mappings first
-            try:
-                pad = getattr(self, "_buttonpad", None)
-                if pad is not None and self._hotkeys:
-                    to_delete = []
-                    for k in self._hotkeys:
-                        pos = pad._keymap.get(k)
-                        if pos == getattr(self, "_pos", None):
-                            to_delete.append(k)
-                    for k in to_delete:
-                        try:
-                            del pad._keymap[k]
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            if value is None:
-                self._hotkeys = None
-                return
-
-            # Normalize to iterable of strings; only allow str or tuple
-            if isinstance(value, str):
-                keys_iter = [value]
-            elif isinstance(value, tuple):
-                keys_iter = list(value)
-            else:
-                raise TypeError("hotkey must be a string, tuple of strings, or None")
-            seen = set()
-            ordered: List[str] = []
-            for k in keys_iter:
-                if not isinstance(k, str):
-                    continue
-                kk = k.strip().lower()
-                if not kk or kk in seen:
-                    continue
-                seen.add(kk)
-                ordered.append(kk)
-            self._hotkeys = tuple(ordered) if ordered else None
-
-            # Register with ButtonPad map_key
-            try:
-                if pad is not None and self._hotkeys:
-                    x, y = getattr(self, "_pos", (None, None))
-                    if x is not None and y is not None:
-                        for k in self._hotkeys:
-                            pad.map_key(k, x, y)
-            except Exception:
-                pass
+    # use hotkey on _BPBase
 
 
 class BPTextBox(_BPBase):
