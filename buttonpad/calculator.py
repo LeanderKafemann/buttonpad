@@ -13,7 +13,7 @@ C,(,),⌫
 0,.,=,+
 """.strip()
 
-def handle_click_equals(widget: buttonpad.BPButton, x: int, y: int) -> None:
+def handle_click_equals(widget: buttonpad.BPWidgetType, x: int, y: int) -> None:
     """
     Handle click event for the equals button.
     """
@@ -31,19 +31,19 @@ def handle_click_equals(widget: buttonpad.BPButton, x: int, y: int) -> None:
     except Exception:
         display.text = "Error"
 
-def handle_click_clear(widget: buttonpad.BPButton, x: int, y: int) -> None:
+def handle_click_clear(widget: buttonpad.BPWidgetType, x: int, y: int) -> None:
     """
     Handle click event for the clear button.
     """
     display.text = ""
 
-def handle_click_backspace(widget: buttonpad.BPButton, x: int, y: int) -> None:
+def handle_click_backspace(widget: buttonpad.BPWidgetType, x: int, y: int) -> None:
     """
     Handle click event for the backspace button.
     """
     display.text = display.text[:-1]
 
-def handle_click_button(widget: buttonpad.BPButton, x: int, y: int) -> None:
+def handle_click_button(widget: buttonpad.BPWidgetType, x: int, y: int) -> None:
     """
     Handle click event for a number/operator button.
     """
