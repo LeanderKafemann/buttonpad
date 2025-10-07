@@ -74,13 +74,27 @@ def redraw() -> None:
     """Update every cell's displayed text to reflect queen placements (global state)."""
     if pad is None:
         return
+    
+    # Find all attacking queen positions
+    attacking_positions = set()
+    qlist = list(queens)
+    for i in range(len(qlist)):
+        for j in range(i + 1, len(qlist)):
+            if attacks(qlist[i], qlist[j]):
+                attacking_positions.add(qlist[i])
+                attacking_positions.add(qlist[j])
+    
     for y in range(8):
         for x in range(8):
             cell = pad[x, y]  # type: ignore[index]
             cell.text = "♛" if (x, y) in queens else ""
             cell.font_size = 34
-            # Apply checkerboard background (queen uses same background)
-            cell.background_color = square_color(x, y)
+            
+            # Choose background color: red for attacking queens, otherwise checkerboard
+            if (x, y) in attacking_positions:
+                cell.background_color = "#ff6666"  # light red for attacking queens
+            else:
+                cell.background_color = square_color(x, y)  # normal checkerboard
 
 
 def toggle(_el, x: int, y: int) -> None:
