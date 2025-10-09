@@ -3,6 +3,8 @@ TODO
 """
 from __future__ import annotations
 
+__version__ = "0.2.3"
+
 # TODO - be able to attach hotkeys to callback functions on the ButtonPad object.
 
 import sys
@@ -18,8 +20,34 @@ from pymsgbox import (
     password as _pymsgbox_password,
 )
 import warnings
+import logging
+import inspect
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.disable(logging.CRITICAL)
+
+"""NOTE: Since this was vibe coded, there are a lot of places (mostly dealing
+with the tkinter library) where there are bare except statements with nothing
+but a pass statement. I've replaced them with the following:
+
+logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
+
+...because I want a record of if these exceptions ever actually happen. I
+imagine that these try/excepts will be removed or handled with the actual
+error handling code later."""
+
+def __LINE__():
+    """Return the current line number in our program. Used for logging."""
+    return inspect.getframeinfo(inspect.currentframe().f_back).lineno  # type: ignore
+
+def __FUNC__():
+    """Return the current function name in our program. Used for logging."""
+    return inspect.getframeinfo(inspect.currentframe().f_back).function  # type: ignore
+
 
 # --- Optional macOS support for colorable buttons ---
+# This was added because tk.Button on macOS does not support bg/fg color changes.
+# Hence we try to load the https://pypi.org/project/tkmacosx/ package if available.
 try:
     from tkmacosx import Button as MacButton  # type: ignore
 except Exception:
@@ -50,18 +78,18 @@ _last_root: Optional[tk.Tk] = None
 def _refocus_root() -> None:
     """Attempt to bring focus back to the most recent ButtonPad window. This is used after PyMsgBox dialogs are closed."""
     try:
-        root = globals().get("_last_root")
-        if root is not None and hasattr(root, "winfo_exists") and root.winfo_exists():
+        last_root = globals().get("_last_root")
+        if last_root is not None and hasattr(last_root, "winfo_exists") and last_root.winfo_exists():
             try:
-                root.lift()
+                last_root.lift()  # Lift the window to the front to ensure visibility
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             try:
-                root.focus_force()
+                last_root.focus_force()  # Try to force focus back to the window
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
     except Exception:
-        pass
+        logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
 def alert(text: str = "", title: str = "PyMsgBox", button: str = "OK") -> Optional[str]:  # type: ignore[override]
     """Wraps the PyMsgBox alert() function. Displays a dialogue box with text and an OK button."""
@@ -92,13 +120,13 @@ class _BPBase:
     """Base class for the BPButton, BPTextBox, and BPLabel classes."""
 
     # Runtime-flexible types for Tk widgets and optionally imported PIL objects
-    _pos: Tuple[int, int]
-    _tooltip_text: Optional[str]
-    _tooltip_after: Optional[Union[int, str]]
-    _tooltip_window: Optional[tk.Toplevel]
-    _pil_image: Any
-    _photo: Any
-    _anchor: str
+    _pos: Tuple[int, int]  # (x,y) position in the pad grid
+    _tooltip_text: Optional[str]  # hover tooltip text
+    _tooltip_after: Optional[Union[int, str]]  # Tk after ID for tooltip delay
+    _tooltip_window: Optional[tk.Toplevel]  # tooltip window if shown
+    _pil_image: Any  # Pillow Image object if used (BPImage only)
+    _photo: Any  # Tk PhotoImage if used (BPImage only)
+    _anchor: str  # alignment for labels, buttons, and text boxes. Example: 'center', 'w', 'e'
 
     def __init__(self, widget: tk.Widget, text: str = ""):
         self.widget: tk.Widget = widget
@@ -123,14 +151,13 @@ class _BPBase:
             try:
                 self.widget.configure(text=text) # pyright: ignore[reportCallIssue]
             except tk.TclError:
-                pass
-                #assert False # For now, all widgets should support text configuration (BPButton, BPTextBox, and BPLabel) so this should never happen.
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Setting the background color, default to system default color.
         try:
             self._background_color = widget.cget("bg")
         except tk.TclError:
-            self._background_color = "SystemButtonFace"
+            self._background_color = "#f0f0f0"
 
         # Setting the text color, default to black.
         try:
@@ -160,18 +187,18 @@ class _BPBase:
     # ----- text (robust across tk / tkmacosx) -----
     @property
     def text(self) -> str:
-        """The text displayed by the widget."""
+        """The text displayed by the widget, either the button caption, the label text, or the text in the text box."""
         if self._uses_textvariable:
             try:
                 self._text = self._textvar.get()
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         else:
             # If we can read the live widget text, do so
             try:
                 self._text = str(self.widget.cget("text"))
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         return self._text
 
     @text.setter
@@ -182,12 +209,12 @@ class _BPBase:
                 self._textvar.set(value)
                 return
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         # Fallback for widgets without textvariable (e.g., some tkmacosx buttons)
         try:
             self.widget.configure(text=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- tooltip -----
     @property
@@ -216,7 +243,7 @@ class _BPBase:
             try:
                 self.widget.configure(anchor=v) # pyright: ignore[reportCallIssue]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             # For Text widgets, use tag justification
             if isinstance(self.widget, tk.Text):
                 just = "center"
@@ -230,9 +257,9 @@ class _BPBase:
                     self.widget.tag_configure("bp_align", justify=just)
                     self.widget.tag_add("bp_align", "1.0", "end")
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- colors -----
     @property
@@ -245,7 +272,7 @@ class _BPBase:
         try:
             self.widget.configure(bg=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @property
     def text_color(self) -> str:
@@ -257,7 +284,7 @@ class _BPBase:
         try:
             self.widget.configure(fg=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- font -----
     @property
@@ -282,7 +309,7 @@ class _BPBase:
         try:
             self.widget.configure(font=(self._font_name, self._font_size)) # pyright: ignore[reportCallIssue]
         except tk.TclError:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- unified click handler (set by user; fired by ButtonPad) -----
     @property
@@ -337,9 +364,9 @@ class _BPBase:
                     try:
                         del pad._keymap[k]
                     except Exception:
-                        pass
+                        logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         if value is None:
             self._hotkeys = None
@@ -373,7 +400,7 @@ class _BPBase:
                     for k in self._hotkeys:
                         pad.map_key(k, x, y)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
 
 
@@ -415,7 +442,7 @@ class BPTextBox(_BPBase):
             if text:
                 widget.insert("1.0", text)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # Override text property to work with tk.Text (multiline)
     @property  # type: ignore[override]
@@ -423,7 +450,7 @@ class BPTextBox(_BPBase):
         try:
             self._text = self.widget.get("1.0", "end-1c")  # pyright: ignore[reportAttributeAccessIssue] # omit trailing newline
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         return self._text
 
     @text.setter  # type: ignore[override]
@@ -434,7 +461,7 @@ class BPTextBox(_BPBase):
             if self._text:
                 self.widget.insert("1.0", self._text) # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # Note: For BPTextBox anchor, only horizontal alignments make sense.
     # Valid values are 'w' (left), 'center', and 'e' (right).
@@ -469,7 +496,7 @@ class BPImage(_BPBase):
         try:
             widget.configure(bg=self._background_color)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # stretch property
     @property
@@ -495,7 +522,7 @@ class BPImage(_BPBase):
         try:
             self.widget.after_idle(self._refresh_render)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _load_source(self, value: Any) -> None:
         self._pil_image = None
@@ -504,7 +531,7 @@ class BPImage(_BPBase):
             try:
                 self.widget.configure(image="") # pyright: ignore[reportCallIssue]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             return
         if isinstance(value, (str, Path)):
             path = Path(str(value))
@@ -520,7 +547,7 @@ class BPImage(_BPBase):
                     self._photo = tk.PhotoImage(file=str(path))
                     self.widget.configure(image=self._photo) # pyright: ignore[reportCallIssue]
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             return
         # Attempt treat as PIL Image object
         try:
@@ -528,7 +555,7 @@ class BPImage(_BPBase):
             if hasattr(value, "size") and getattr(value.__class__, "__name__", "") == "Image":
                 self._pil_image = value
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _refresh_render(self) -> None:
         if self._pil_image is None:
@@ -545,7 +572,7 @@ class BPImage(_BPBase):
             if cur_w >= 3 and cur_h >= 3:  # treat tiny (1x1 / 2x2) as not yet laid out
                 fw, fh = cur_w, cur_h
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         img = self._pil_image
         iw, ih = img.size
         if self._stretch:
@@ -558,14 +585,14 @@ class BPImage(_BPBase):
             target_w = max(1, int(round(iw * scale)))
             target_h = max(1, int(round(ih * scale)))
         try:
-            resized = img.resize((target_w, target_h), Image.LANCZOS)
+            resized = img.resize((target_w, target_h), Image.LANCZOS) # type: ignore (LANCZOS is valid, I don't know why Pyrite is complaining here)
         except Exception:
             resized = img
         try:
             self._photo = ImageTk.PhotoImage(resized)
             self.widget.configure(image=self._photo) # pyright: ignore[reportCallIssue]
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _on_container_resize(self, width: int, height: int) -> None:
         self._frame_size = (width, height)
@@ -618,7 +645,7 @@ class ButtonPad:
         try:
             globals()["_last_root"] = self.root
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Optional status bar (created on-demand when status_bar is set)
         self._status_frame = None
@@ -642,7 +669,7 @@ class ButtonPad:
                     RuntimeWarning,
                 )
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Outer container; border controls padding to window edges
         self._container = tk.Frame(self.root, bg=self.window_bg)
@@ -671,14 +698,14 @@ class ButtonPad:
             try:
                 self.status_bar = str(status_bar)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Initialize menu if provided
         if menu:
             try:
                 self.menu = menu
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @property
     def layout(self) -> str:
@@ -717,7 +744,7 @@ class ButtonPad:
                 try:
                     self._status_frame.destroy()
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             self._status_frame = None
             self._status_label = None
             return
@@ -755,14 +782,14 @@ class ButtonPad:
                 try:
                     self._status_label.configure(bg=self._status_bg_color, fg=self._status_text_color)
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             if self._status_frame is not None:
                 try:
                     self._status_frame.configure(bg=self._status_bg_color)
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @property
     def status_bar_background_color(self) -> str:
@@ -777,12 +804,12 @@ class ButtonPad:
             try:
                 self._status_frame.configure(bg=self._status_bg_color)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         if self._status_label is not None:
             try:
                 self._status_label.configure(bg=self._status_bg_color)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @property
     def status_bar_text_color(self) -> str:
@@ -796,7 +823,7 @@ class ButtonPad:
             try:
                 self._status_label.configure(fg=self._status_text_color)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- menu API -----
     @property
@@ -834,7 +861,7 @@ class ButtonPad:
             try:
                 self.root.config(menu="")
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             self._menubar = None
             self._menu_def = None
 
@@ -846,18 +873,18 @@ class ButtonPad:
             try:
                 self.root.unbind_all(seq)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self._menu_bindings = []
         # Remove existing menubar
         if getattr(self, "_menubar", None) is not None:
             try:
                 self.root.config(menu="")
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             try:
                 self._menubar.destroy()
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self._menubar = None
 
     def _menu_build_recursive(self, menu_widget: tk.Menu, definition: Dict[str, Any]) -> None:
@@ -907,7 +934,7 @@ class ButtonPad:
                 self.root.bind_all(ctrl_seq, lambda e: func())
                 self._menu_bindings.append(ctrl_seq)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _parse_accelerator(self, accel: str) -> Optional[str]:
         if not accel:
@@ -950,11 +977,11 @@ class ButtonPad:
         try:
             self.root.quit()
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             self.root.destroy()
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self._destroyed = True
 
     def update(self, new_configuration: str) -> None:
@@ -965,7 +992,7 @@ class ButtonPad:
             try:
                 w.destroy()
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self._widgets.clear()
         self._cell_to_element.clear()
 
@@ -1009,22 +1036,22 @@ class ButtonPad:
         try:
             self._tooltip_hide(element)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if self.on_pre_click:
                 self.on_pre_click(element)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if element.on_click:
                 element.on_click(element, x, y)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if self.on_post_click:
                 self.on_post_click(element)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _fire_enter(self, element: BPWidgetType) -> None:
         x, y = element._pos
@@ -1032,12 +1059,12 @@ class ButtonPad:
         try:
             self._tooltip_schedule(element)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if element.on_enter:
                 element.on_enter(element, x, y)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _fire_exit(self, element: BPWidgetType) -> None:
         x, y = element._pos
@@ -1045,12 +1072,12 @@ class ButtonPad:
         try:
             self._tooltip_hide(element)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if element.on_exit:
                 element.on_exit(element, x, y)
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- tooltip helpers (no idlelib) -----
     def _tooltip_schedule(self, element: BPWidgetType) -> None:
@@ -1063,7 +1090,7 @@ class ButtonPad:
             try:
                 self.root.after_cancel(after_id)  # type: ignore[arg-type]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         element._tooltip_after = self.root.after(350, lambda e=element: self._tooltip_show(e))
 
     def _tooltip_show(self, element: BPWidgetType) -> None:
@@ -1077,7 +1104,7 @@ class ButtonPad:
             try:
                 tw.attributes("-topmost", True)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             frame = tk.Frame(tw, bg="#333333", bd=0, highlightthickness=0)
             frame.pack(fill="both", expand=True)
             label = tk.Label(frame, text=text, bg="#333333", fg="white", padx=6, pady=3, justify="left")
@@ -1091,14 +1118,14 @@ class ButtonPad:
                         if isinstance(gc, tk.Label):
                             gc.configure(text=text)
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         # position near mouse pointer
         try:
             x = self.root.winfo_pointerx() + 12
             y = self.root.winfo_pointery() + 16
             tw.wm_geometry(f"+{x}+{y}")
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     def _tooltip_hide(self, element: BPWidgetType) -> None:
         after_id = getattr(element, "_tooltip_after", None)
@@ -1106,14 +1133,14 @@ class ButtonPad:
             try:
                 self.root.after_cancel(after_id)  # type: ignore[arg-type]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         element._tooltip_after = None
         tw = getattr(element, "_tooltip_window", None)
         if tw is not None:
             try:
                 tw.destroy()
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         element._tooltip_window = None
 
     def _build_from_config(self, configuration: str) -> None:
@@ -1135,7 +1162,7 @@ class ButtonPad:
                         RuntimeWarning,
                     )
                 except Exception:
-                    pass
+                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         rows = len(grid_specs)
         cols = max((len(r) for r in grid_specs), default=0)
@@ -1174,7 +1201,7 @@ class ButtonPad:
         try:
             self._container.focus_set()
         except Exception:
-            pass
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @staticmethod
     def _resolve_sizes(val: Union[int, Sequence[int]], n: int, what: str) -> List[int]:
@@ -1290,7 +1317,7 @@ class ButtonPad:
             try:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             w.configure(command=lambda e=element: self._fire_click(e)) # pyright: ignore[reportCallIssue]
 
         elif spec.kind == "label":
@@ -1309,7 +1336,7 @@ class ButtonPad:
             try:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         elif spec.kind == "entry":
@@ -1325,7 +1352,7 @@ class ButtonPad:
             try:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
 
         elif spec.kind == "image":
@@ -1345,12 +1372,12 @@ class ButtonPad:
             try:
                 element._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
             try:
                 frame.bind("<Configure>", lambda evt, e=element: e._on_container_resize(evt.width, evt.height))
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             # Auto-load image if token suffix references an existing file (absolute, ~, or relative).
             try:
                 token = spec.text  # e.g. IMG_cat.png or IMG_/abs/path/to/img.png or IMG_~/pic.png
@@ -1366,7 +1393,7 @@ class ButtonPad:
                                 try:
                                     element.image = p
                                 except Exception:
-                                    pass
+                                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
                         else:
                             # Relative path: only try CWD
                             cwd_p = Path.cwd() / expanded
@@ -1374,9 +1401,9 @@ class ButtonPad:
                                 try:
                                     element.image = cwd_p
                                 except Exception:
-                                    pass
+                                    logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             except Exception:
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         else:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
