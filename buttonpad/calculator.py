@@ -57,9 +57,9 @@ def main() -> None:
         layout=LAYOUT,
         cell_width=70,
         cell_height=[50, 60, 60, 60, 60, 60],  # taller display row
-        h_gap=6,
-        v_gap=6,
-        window_color="gray",
+        padx=6,
+        pady=6,
+        window_bg_color="gray",
         default_bg_color="white",
         default_text_color="#2c2c2c",
         title="ButtonPad Calculator",

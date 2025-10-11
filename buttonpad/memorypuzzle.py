@@ -190,13 +190,13 @@ def main() -> None:
         layout=layout,
         cell_width=80,
         cell_height=80,
-        h_gap=6,
-        v_gap=6,
+        padx=6,
+        pady=6,
         border=10,
         title="Memory Puzzle",
         default_bg_color=HIDDEN_BG,
         default_text_color=TEXT_COLOR,
-        window_color=WINDOW_BG,
+        window_bg_color=WINDOW_BG,
         resizable=True,
     )
     board = {(x, y): "" for y in range(ROWS) for x in range(COLS)}

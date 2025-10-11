@@ -19,7 +19,7 @@ bp = buttonpad.ButtonPad(
     `'',`'',`'',`'',`'',`''
     `'',`'',`'',`'',`'',`''
     """,  # 6 lines each with 6 cells gives us a 6x6 grid
-    window_color="lightgray",
+    window_bg_color="lightgray",
     default_bg_color="lightgray",
     title="Mouse Enter/Exit Demo"
 )

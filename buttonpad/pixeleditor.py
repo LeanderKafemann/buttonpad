@@ -50,13 +50,13 @@ def main() -> None:
         layout=layout,
         cell_width=22,
         cell_height=22,
-        h_gap=0,
-        v_gap=0,
+        padx=0,
+        pady=0,
         border=10,
         title="Pixel Editor",
         default_bg_color=PALETTE[0],
         default_text_color="black",
-        window_color=WINDOW_BG,
+        window_bg_color=WINDOW_BG,
         resizable=True,
     )
 

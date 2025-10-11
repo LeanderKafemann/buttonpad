@@ -222,13 +222,13 @@ def main() -> None:
         layout=layout,
         cell_width=26,
         cell_height=26,
-        h_gap=2,
-        v_gap=2,
+        padx=2,
+        pady=2,
         border=10,
         title="Flood-It",
         default_bg_color="lightgray",
         default_text_color="#222222",
-        window_color="#f5f5f5",
+        window_bg_color="#f5f5f5",
         resizable=True,
     )
     board = {(x, y): 0 for y in range(ROWS) for x in range(COLS)}

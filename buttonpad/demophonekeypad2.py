@@ -44,12 +44,12 @@ if __name__ == "__main__":
         title="Telephone Keypad Demo",
         cell_width=70,
         cell_height=100,
-        h_gap=20,
-        v_gap=10,
+        padx=20,
+        pady=10,
         border=40,
-        default_bg_color='#ff4444',
+        default_bg_color='khaki',
         default_text_color='darkblue',
-        window_color='green',
+        window_bg_color='DarkSeaGreen1',
     )
 
     # Status bar shows recent key presses.

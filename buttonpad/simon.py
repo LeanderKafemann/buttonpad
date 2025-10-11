@@ -61,12 +61,12 @@ def main() -> None:
         layout=layout,
         cell_width=200,
         cell_height=200,
-        h_gap=4,
-        v_gap=4,
+        padx=4,
+        pady=4,
         border=8,
         title="Simon",
         default_text_color=TEXT_COLOR,
-        window_color=WINDOW_BG,
+        window_bg_color=WINDOW_BG,
         resizable=True,
     )
     try:

@@ -51,13 +51,13 @@ def main() -> None:
         layout=layout,
         cell_width=48,
         cell_height=48,
-        h_gap=4,
-        v_gap=4,
+        padx=4,
+        pady=4,
         border=8,
         title="Keyboard Movement Demo",
         default_bg_color=BTN_BG,
         default_text_color=BTN_FG,
-        window_color=WINDOW_BG,
+        window_bg_color=WINDOW_BG,
         resizable=True,
     )
 

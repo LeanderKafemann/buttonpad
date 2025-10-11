@@ -3,7 +3,7 @@ TODO
 """
 from __future__ import annotations
 
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 
 # TODO - be able to attach hotkeys to callback functions on the ButtonPad object.
 
@@ -467,10 +467,10 @@ class BPTextBox(_BPBase):
     # Valid values are 'w' (left), 'center', and 'e' (right).
 
 class BPImage(_BPBase):
-    """Image widget wrapper created from IMG_* tokens in the layout.
+    """Image widget wrapper created from IMAGE: tokens in the layout.
 
     Usage in layout:
-        IMG_A, IMG_A  -> a 2x1 merged image frame (merging identical tokens works like buttons/labels)
+        IMAGE:cat.png, IMAGE:cat.png  -> a 2x1 merged image frame (merging identical tokens works like buttons/labels)
 
     image property accepts:
       - str / Path: filename to load
@@ -612,12 +612,12 @@ class _Spec:
 class ButtonPad:
     def __init__(
         self,
-        layout: str,  # """Button, 'Label 1', "Label 2", [Text Box], IMG_~/monalisa.png"""
+        layout: str,  # """Button, 'Label 1', "Label 2", [Text Box], IMAGE:~/monalisa.png"""
         cell_width: Union[int, Sequence[int]] = 60,  # width of each grid cell in pixels; int for all cells or list of ints for per-column widths
         cell_height: Union[int, Sequence[int]] = 60,  # height of each grid cell in pixels; int for all cells or list of ints for per-row heights
-        h_gap: int = 0,  # horizontal gap between cells in pixels
-        v_gap: int = 0,  # vertical gap between cells in pixels
-        window_color: str = '#f0f0f0',  # background color of the window
+        padx: int = 0,  # horizontal gap/padding between cells in pixels
+        pady: int = 0,  # vertical gap/padding between cells in pixels
+        window_bg_color: str = '#f0f0f0',  # background color of the window
         default_bg_color: str = '#f0f0f0',  # default background color for widgets
         default_text_color: str = 'black',  # default text color for widgets
         title: str = 'ButtonPad App',  # window title
@@ -629,16 +629,16 @@ class ButtonPad:
         self._layout = layout
         self._cell_width_input = cell_width
         self._cell_height_input = cell_height
-        self.h_gap = int(h_gap)
-        self.v_gap = int(v_gap)
-        self.window_bg = window_color
+        self.padx = int(padx)
+        self.pady = int(pady)
+        self.window_bg_color = window_bg_color
         self.default_background_color = default_bg_color
         self.default_text_color = default_text_color
         self.border = int(border)
 
         self.root = tk.Tk()
         self.root.title(title)
-        self.root.configure(bg=self.window_bg)
+        self.root.configure(bg=self.window_bg_color)
         self.root.resizable(resizable, resizable)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         # Remember last root for post-dialog refocus
@@ -652,7 +652,7 @@ class ButtonPad:
         self._status_label = None
         self._status_text = None
         # Defaults: background inherits window background; text inherits default button text color
-        self._status_bg_color = self.window_bg
+        self._status_bg_color = self.window_bg_color
         self._status_text_color = self.default_text_color
 
         # Menu internals
@@ -672,7 +672,7 @@ class ButtonPad:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Outer container; border controls padding to window edges
-        self._container = tk.Frame(self.root, bg=self.window_bg)
+        self._container = tk.Frame(self.root, bg=self.window_bg_color)
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
         # storage: keyed by (x, y) == (col, row)
@@ -1273,12 +1273,12 @@ class ButtonPad:
         width = sum(self.column_widths[c: c + colspan])
         height = sum(self.row_heights[r: r + rowspan])
 
-        # Each cell/merged region gets a frame; gaps apply here
+        # Each cell/merged region gets a frame; paddings apply here
         frame = tk.Frame(
             self._container,
             width=width,
             height=height,
-            bg=self.window_bg,
+            bg=self.window_bg_color,
             highlightthickness=0,
             bd=0,
         )
@@ -1287,8 +1287,8 @@ class ButtonPad:
             column=c,
             rowspan=rowspan,
             columnspan=colspan,
-            padx=self.h_gap // 2,
-            pady=self.v_gap // 2,
+            padx=self.padx // 2,
+            pady=self.pady // 2,
             sticky="nsew",
         )
         frame.grid_propagate(False)
@@ -1324,7 +1324,7 @@ class ButtonPad:
             w = tk.Label(
                 frame,
                 text=spec.text,
-                bg=self.window_bg,
+                bg=self.window_bg_color,
                 fg="black",
                 anchor=spec.anchor or "center",
                 padx=0,
@@ -1380,9 +1380,9 @@ class ButtonPad:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             # Auto-load image if token suffix references an existing file (absolute, ~, or relative).
             try:
-                token = spec.text  # e.g. IMG_cat.png or IMG_/abs/path/to/img.png or IMG_~/pic.png
-                if token.startswith("IMG_"):
-                    fname = token[4:].strip()
+                token = spec.text  # e.g. IMAGE:cat.png or IMAGE:/abs/path/to/img.png or IMAGE:~/pic.png
+                if token.startswith("IMAGE:"):
+                    fname = token[6:].strip()
                     if fname:
                         # Expand ~ to home directory if present
                         expanded = str(Path(fname).expanduser())
@@ -1438,23 +1438,31 @@ class ButtonPad:
                     tok = tok[1:].lstrip()
 
                 # label?
-                if (len(tok) >= 2) and ((tok[0] == tok[-1]) and tok[0] in ("'", '"')):
-                    text = tok[1:-1]
+                if ((len(tok) >= 2) and ((tok[0] == tok[-1]) and tok[0] in ("'", '"'))) or tok.startswith("LABEL:"):
+                    if tok.startswith("LABEL:"):
+                        text = tok[6:].lstrip()
+                    else:
+                        text = tok[1:-1]
                     row.append(_Spec(kind="label", text=text, anchor="center", no_merge=no_merge))
                     continue
 
                 # text box?
-                if tok.startswith("[") and tok.endswith("]"):
-                    text = tok[1:-1]
+                if (tok.startswith("[") and tok.endswith("]")) or (tok.startswith("TEXTBOX:")):
+                    if tok.startswith("TEXTBOX:"):
+                        text = tok[8:].lstrip()
+                    else:
+                        text = tok[1:-1]
                     row.append(_Spec(kind="entry", text=text, no_merge=no_merge))
                     continue
 
-                # image token (IMG_*)
-                if tok.startswith("IMG_"):
+                # image token (IMAGE:) 
+                if tok.startswith("IMAGE:"):
                     row.append(_Spec(kind="image", text=tok, no_merge=no_merge))
                     continue
 
                 # plain button
+                if tok.startswith("BUTTON:"):
+                    tok = tok[7:].lstrip()
                 row.append(_Spec(kind="button", text=tok, no_merge=no_merge))
             rows.append(row)
         return rows

@@ -205,13 +205,13 @@ def main() -> None:
         layout=layout,
         cell_width=100,
         cell_height=100,
-        h_gap=6,
-        v_gap=6,
+        padx=6,
+        pady=6,
         border=14,
         title="Magic 8-Ball",
         default_bg_color=BLACK,
         default_text_color=WHITE,
-        window_color="#0b0b0b",
+        window_bg_color="#0b0b0b",
         resizable=True,
     )
     state = {"mode": "idle", "after": []}

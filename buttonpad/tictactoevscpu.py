@@ -156,13 +156,13 @@ def main() -> None:
                   `,`,`""",
         cell_width=72,
         cell_height=72,
-        h_gap=4,
-        v_gap=4,
+        padx=4,
+        pady=4,
         border=12,
         title="Tic Tac Toe (vs CPU)",
         default_bg_color=EMPTY_BG,
         default_text_color=TEXT_COLOR,
-        window_color="#ffffff",
+        window_bg_color="#ffffff",
         resizable=False,
     )
     board = {(x, y): "" for y in range(SIZE) for x in range(SIZE)}

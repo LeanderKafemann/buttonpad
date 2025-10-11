@@ -184,13 +184,13 @@ def main() -> None:
         layout=layout,
         cell_width=90,
         cell_height=90,
-        h_gap=6,
-        v_gap=6,
+        padx=6,
+        pady=6,
         border=10,
         title="2048",
         default_bg_color=EMPTY_BG,
         default_text_color=TEXT_COLOR,
-        window_color=WINDOW_BG,
+        window_bg_color=WINDOW_BG,
         resizable=True,
     )
     board: BoardType = {(x, y): 0 for y in range(ROWS) for x in range(COLS)}

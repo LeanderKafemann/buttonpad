@@ -233,13 +233,13 @@ def main() -> None:
         layout=layout,
         cell_width=48,
         cell_height=48,
-        h_gap=4,
-        v_gap=4,
+        padx=4,
+        pady=4,
         border=10,
         title="Emoji Copy to Clipboard Pad",
         default_bg_color=BOTTOM_BG,
         default_text_color="black",
-        window_color="#f0f0f0",
+        window_bg_color="#f0f0f0",
         resizable=True,
     )
 

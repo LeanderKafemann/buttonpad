@@ -237,13 +237,13 @@ def main() -> None:
 		layout=layout,
 		cell_width=20,
 		cell_height=20,
-		h_gap=0,
-		v_gap=0,
+		padx=0,
+		pady=0,
 		border=10,
 		title="Conway's Game of Life",
 		default_bg_color=OFF_BG,
 		default_text_color=TEXT_COLOR,
-		window_color=WINDOW_BG,
+		window_bg_color=WINDOW_BG,
 		resizable=True,
 	)
 

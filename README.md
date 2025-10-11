@@ -1,18 +1,16 @@
 # ButtonPad
 
-ButtonPad lets you declare a grid of buttons, labels, and text boxes using a compact, CSV-like layout string and control it with simple Python callbacks. It’s built on the Tkinter standard library and works on Windows, macOS, and Linux. On macOS, it can optionally use tkmacosx for better button color support.
-
-(THIS CODE AND DOCUMENTATION IS STILL UNDER REVIEW AND CAN CHANGE AT ANY TIME.)
+ButtonPad lets you create a GUI of a grid of buttons, labels, text boxes, and images using a compact, CSV-like layout string and control it with simple Python callbacks. It’s built on the Tkinter standard library and works on Windows, macOS, and Linux. (On macOS, it optionally uses tkmacosx for better button color support.)
 
 Key features:
-• Pure-Python, no custom widget subclasses you must learn — just layout + callbacks
-• CSV-like layout string with auto-merge of identical adjacent cells
-• Per-cell click handlers plus hover enter/exit callbacks and tooltips
-• Global key mapping AND per-button / per-label hotkeys (BPButton.hotkey / BPLabel.hotkey)
-• Optional status bar (set/get via pad.status_bar) with color customization
-• Optional menubar definition with automatic accelerator binding
-• Adjustable per-column/row sizing, gaps, margin, and resizable windows
-• PyMsgBox dialog boxes: `alert()`, `confirm()`, `prompt()`, `password()`
+* Pure-Python code that only depends on the standard library, built on top of tkinter. (Pillow is optional.)
+* A CSV-like layout configuration string generates the grid of widgets.
+* Each widget can be assigned functions to handle click, enter, and exit events.
+* Each widget can be assigned tool tip text, hotkey mappings, and custom font and colors.
+* Optional status bar with custom colors.
+* Optional menubar configuration.
+* Adjustable per-column/row sizing, margins, borders, and resizable windows
+* PyMsgBox dialog boxes: `alert()`, `confirm()`, `prompt()`, `password()`
 
 
 ## Quick Start with the Launcher
@@ -33,12 +31,12 @@ bp = buttonpad.ButtonPad(
 	*,0,#""",
 	cell_width=70,
 	cell_height=100,
-	h_gap=20,
-	v_gap=10,
+	padx=20,
+	pady=10,
 	border=40,
 	default_bg_color='#ff4444',
 	default_text_color='darkblue',
-	window_color='green',	
+	window_bg_color='green',	
 	title="Telephone Keypad Demo",
 )
 
@@ -51,9 +49,10 @@ bp.run()
 The grid is described by a CSV-like string: commas separate columns, newlines separate rows.
 
 Token types:
-- Button (default): any unquoted text, e.g. `A`, `Click`, `7`
-- Label: text wrapped in single or double quotes, e.g. `'Hello'` or `"Ready"`
-- Text box (editable): text wrapped in square brackets, e.g. `[Name]`
+- Button (default): any unquoted text, e.g. `A`, `Click`, `7` (or prefix with `BUTTON:`)
+- Label: text wrapped in single or double quotes, e.g. `'Hello'` or `"Ready"` (or prefix with `LABEL:`)
+- Text box (multiline and editable): text wrapped in square brackets, e.g. `[Name]` (or prefix with `TEXTBOX:`)
+- Image: Prefix with `IMAGE:` followed by the image filename.
 - No-merge: prefix a token with a backtick to prevent merging, e.g. `` `X``
 - Empty token: an empty cell becomes an empty button
 
@@ -64,16 +63,14 @@ Merging rules:
 
 Examples:
 
+This creates a top row with three buttons (labelled "A", "B", and "C"). The second row is a single wide, 3x1 cell button labelled "Play". The third row has two text labels that say "Status" and "Enabled", next to a text box with the placeholder text, "Name". The bottom row has three separate buttons, each labelled "Start":
+
 ```
-# 1x3 row, then a 3-wide merged button row, then a label+entry row
 A,B,C
 Play,Play,Play
-"Status",[Name]
-
-# Prevent the center from merging with neighbors
-`Play,Play,`Play
+"Status","Enabled",[Name]
+`Start,`Start,`Start
 ```
-
 
 ## API
 
@@ -82,24 +79,28 @@ Play,Play,Play
 Constructor:
 
 ```python
-ButtonPad(
-	layout: str,
-	cell_width: int | Sequence[int] = 60,
-	cell_height: int | Sequence[int] = 60,
-	h_gap: int = 0,
-	v_gap: int = 0,
-	window_color: str = "#f0f0f0",
-	default_bg_color: str = "#f0f0f0",
-	default_text_color: str = "black",
-	title: str = "ButtonPad App",
-	resizable: bool = True,
-	border: int = 0,
-)
+class ButtonPad:
+    def __init__(
+        self,
+        layout: str,  # """Button, 'Label 1', "Label 2", [Text Box], IMAGE:~/monalisa.png"""
+        cell_width: Union[int, Sequence[int]] = 60,  # width of each grid cell in pixels; int for all cells or list of ints for per-column widths
+        cell_height: Union[int, Sequence[int]] = 60,  # height of each grid cell in pixels; int for all cells or list of ints for per-row heights
+        h_gap: int = 0,  # horizontal gap between cells in pixels
+        v_gap: int = 0,  # vertical gap between cells in pixels
+        window_color: str = '#f0f0f0',  # background color of the window
+        default_bg_color: str = '#f0f0f0',  # default background color for widgets
+        default_text_color: str = 'black',  # default text color for widgets
+        title: str = 'ButtonPad App',  # window title
+        resizable: bool = True,  # whether the window is resizable
+        border: int = 0,  # padding between the grid and the window edge
+        status_bar: Optional[str] = None,  # initial status bar text; None means no status bar
+        menu: Optional[Dict[str, Any]] = None,  # menu definition dict; see menu property for details
+    ):
 ```
 
 Notes:
 - `cell_width`/`cell_height` can be a single int (uniform) or a list matching the number of columns/rows.
-- `h_gap`/`v_gap` set the internal spacing between cells; `border` is outer margin.
+- `padx`/`pady` set the internal spacing between cells; `border` is outer margin.
 - The window is resizable by default.
 
 Instance methods and properties:

@@ -73,12 +73,12 @@ def main() -> None:
         layout=layout,
         cell_width=40,
         cell_height=40,
-        h_gap=0,
-        v_gap=0,
+        padx=0,
+        pady=0,
         border=2,
         title="Gomoku",
         default_bg_color="#cd780a",
-        window_color="#804d00",
+        window_bg_color="#804d00",
         resizable=True,
     )
 

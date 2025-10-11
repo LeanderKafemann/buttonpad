@@ -61,9 +61,9 @@ def main() -> None:
         layout=layout,
         cell_width=40,
         cell_height=40,
-        h_gap=1,
-        v_gap=1,
-        window_color="#000000",  # thin grid lines look nicer against black window bg
+        padx=1,
+        pady=1,
+        window_bg_color="#000000",  # thin grid lines look nicer against black window bg
         default_bg_color=WATER_COLOR,
         default_text_color="black",
         title="Fish Tank",
