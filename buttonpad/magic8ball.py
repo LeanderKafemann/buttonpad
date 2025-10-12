@@ -128,7 +128,7 @@ def randomize_tick(remaining: int) -> None:
         if (x, y) == CENTER:
             continue
         set_cell(x, y, random.choice(RANDOM_COLORS), "")
-    aid = pad.root.after(RANDOM_TICK_MS, lambda: randomize_tick(remaining - 1))
+    aid = pad.root.after(RANDOM_TICK_MS, lambda: randomize_tick(remaining - 1))  # type: ignore[arg-type]
     state["after"].append(aid)
 
 
@@ -150,7 +150,7 @@ def fade_to_black() -> None:
             return
         x, y = cells[i]
         set_cell(x, y, BLACK, "")
-        aid = pad.root.after(FADE_DELAY_MS, lambda: step(i + 1))
+        aid = pad.root.after(FADE_DELAY_MS, lambda: step(i + 1))  
         state["after"].append(aid)
 
     step(0)
