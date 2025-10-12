@@ -210,9 +210,14 @@ def new_game() -> None:
 
 
 def rebind_menu() -> None:
-    """Configure the application menu (currently only New Game)."""
+    """Configure the application menu (currently New Game + Quit)."""
     if bp is not None:
-        bp.menu = {"File": {"New Game": (new_game, "Cmd+N")}}
+        bp.menu = {
+            "File": {
+                "New Game": (new_game, "Cmd+N"),
+                "Quit": (lambda: bp.quit(), "Cmd+Q"),
+            }
+        }
 
 
 def main() -> None:
