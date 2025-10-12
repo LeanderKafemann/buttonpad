@@ -40,7 +40,8 @@ import buttonpad
 
 # Multi-line string defines 4 rows of 3 cells each (a 3x4 grid).
 bp = buttonpad.ButtonPad(
-	"""1,2,3
+	"""[],[],[]
+    1,2,3
 	4,5,6
 	7,8,9
 	*,0,#
@@ -58,24 +59,45 @@ import buttonpad
 
 # Multi-line string defines 4 rows of 3 cells each (a 3x4 grid).
 bp = buttonpad.ButtonPad(
-	"""1,2,3
+	"""[],[],[]
+    1,2,3
 	4,5,6
 	7,8,9
 	*,0,#
 	Call,Call,Cancel""",
-	cell_width=70,
-	cell_height=100,
-	padx=20,
-	pady=10,
-	border=40,
-	default_bg_color='#ff4444',
-	default_text_color='darkblue',
-	window_bg_color='green',	
+	cell_width=100,
+	cell_height=60,
+	padx=10,
+	pady=5,
+	border=20,
+	#default_bg_color='lightblue',
+	#default_text_color='darkblue',
+	#window_bg_color='whitesmoke',	
 	title="Telephone Keypad Demo",
 )
 
-bp.
+# Create callback functions for the buttons:
+def cancel_call(widget, x, y):
+    bp[0,0].text = ''  # Clear the display
 
+def call_number(widget, x, y):
+    buttonpad.alert("Simulate calling " + bp[0,0].text)  # Show an alert with the number being called
+
+def add_button_label_to_display(widget, x, y):
+    bp[0, 0].text += widget.text  # Append the pressed key to the display
+
+# Assign callbacks to buttons:
+for x in range(3):
+    for y in range(1, 5):  # rows 1-4 contain keys 1..9,*,0,#
+        bp[x,y].on_click = add_button_label_to_display
+
+bp[2, 5].on_click = cancel_call  # Cancel button
+
+bp[0, 5].on_click = call_number  # Call button
+
+bp[0, 0].font_size = 24  # Make the display text larger
+
+# Run the app:
 bp.run()
 ```
 
@@ -115,15 +137,14 @@ Play,Play,Play
 Constructor:
 
 ```python
-class ButtonPad:
     def __init__(
         self,
         layout: str,  # """Button, 'Label 1', "Label 2", [Text Box], IMAGE:~/monalisa.png"""
         cell_width: Union[int, Sequence[int]] = 60,  # width of each grid cell in pixels; int for all cells or list of ints for per-column widths
         cell_height: Union[int, Sequence[int]] = 60,  # height of each grid cell in pixels; int for all cells or list of ints for per-row heights
-        h_gap: int = 0,  # horizontal gap between cells in pixels
-        v_gap: int = 0,  # vertical gap between cells in pixels
-        window_color: str = '#f0f0f0',  # background color of the window
+        padx: int = 0,  # horizontal gap/padding between cells in pixels
+        pady: int = 0,  # vertical gap/padding between cells in pixels
+        window_bg_color: str = '#f0f0f0',  # background color of the window
         default_bg_color: str = '#f0f0f0',  # default background color for widgets
         default_text_color: str = 'black',  # default text color for widgets
         title: str = 'ButtonPad App',  # window title
@@ -143,13 +164,16 @@ Instance methods and properties:
 - `run()` — start the Tkinter event loop.
 - `quit()` — close the window (idempotent).
 - `update(new_layout: str)` — rebuild the grid from a new layout string.
-- `pad[x, y]` — index into the grid to get an element wrapper at column x, row y.
-- `map_key(keysym: str, x: int, y: int)` — press a key to trigger a cell (e.g., `"1"`, `"a"`, `"Escape"`).
+- `[x, y]` — index into the grid to get an element wrapper at column x, row y.
 - Status bar: `status_bar` (string or None) plus `status_bar_background_color`, `status_bar_text_color`.
 - Menu: assign a nested dict to `menu` to build a menubar with optional accelerators.
 - Global hooks: `on_pre_click(element)`, `on_post_click(element)` called around every click.
 
-Re-exported dialogs (from pymsgbox): `alert`, `confirm`, `prompt`, `password`.
+Re-exported dialogs from pymsgbox: 
+- `alert(text: str = "", title: str = "PyMsgBox", button: str = "OK")` - Displays a message.
+- `confirm(text: str = "", title: str = "PyMsgBox", buttons: Union[str, Sequence[str]] = ("OK", "Cancel"))` - Displays OK/Cancel box and returns selection.
+- `prompt(text: str = "", title: str = "PyMsgBox", default: str = "")` - Lets user type a resonse and returns it.
+- `password(text: str = "", title: str = "PyMsgBox", default: str = "", mask: str = "*")` - Like `prompt()` but hides the typed characters.
 
 
 ### Widgets
@@ -187,8 +211,8 @@ pad.map_key("space", 1, 0)
 Adjacent identical tokens automatically merge into a single widget, spanning a rectangular area. To opt out for a specific cell, prefix it with a backtick to mark it as “no-merge”:
 
 ```
-Play,Play,Play
-`Play,Play,`Play   # left and right don't merge with the middle
+Play,Play,Play  # this row is merged into a single button
+`Play,`Play,`Play   # this row is three separate buttons
 ```
 
 
