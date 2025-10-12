@@ -128,7 +128,19 @@ class _BPBase:
     _photo: Any  # Tk PhotoImage if used (BPImage only)
     _anchor: str  # alignment for labels, buttons, and text boxes. Example: 'center', 'w', 'e'
 
-    def __init__(self, widget: tk.Widget, text: str = ""):
+    def __init__(
+        self,
+        widget: tk.Widget,
+        text: str = "",
+        *,
+        text_color: Optional[str] = None,
+        bg_color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+        anchor: Optional[str] = "center",
+        on_click: BPCallbackType = None,
+        on_enter: BPCallbackType = None,
+        on_exit: BPCallbackType = None,
+    ) -> None:
         self.widget: tk.Widget = widget
         self._font_name = "TkDefaultFont"
         self._font_size = 12
@@ -153,31 +165,52 @@ class _BPBase:
             except tk.TclError:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
-        # Setting the background color, default to system default color.
-
+        # Background / text colors: use provided values when non-None, otherwise use
+        # widget/system defaults retrieved via widget.cget (best-effort).
         try:
-            self._bg_color = widget.cget("bg")
-        except tk.TclError:
-            self._bg_color = "#f0f0f0"
-
-        # Setting the text color, default to black.
+            default_bg = widget.cget("bg")
+        except Exception:
+            default_bg = "#f0f0f0"
         try:
-            self._text_color = widget.cget("fg")
-        except tk.TclError:
-            self._text_color = "black"
+            default_fg = widget.cget("fg")
+        except Exception:
+            default_fg = "black"
+
+        # Store and apply background color (if provided)
+        self._background_color = default_bg
+        if bg_color is not None:
+            try:
+                self.widget.configure(bg=bg_color) # pyright: ignore[reportCallIssue]
+                self._background_color = bg_color
+            except Exception:
+                # fall back to default already stored
+                pass
+
+        # Store and apply text color (if provided)
+        self._text_color = default_fg
+        if text_color is not None:
+            try:
+                self.widget.configure(fg=text_color) # pyright: ignore[reportCallIssue]
+                self._text_color = text_color
+            except Exception:
+                # fall back to default already stored
+                pass
+
         # text/label/button anchor (left/center/right semantics)
-        self._anchor = "center"
+        self._anchor = (anchor or "center")
+
         # Callback hooks (ButtonPad will invoke these)
-        self._on_click: BPCallbackType = None
-        self._on_enter: BPCallbackType = None
-        self._on_exit: BPCallbackType = None
+        self._on_click: BPCallbackType = on_click
+        self._on_enter: BPCallbackType = on_enter
+        self._on_exit: BPCallbackType = on_exit
+
         # hotkey strings (lowercased keysym strings) stored as immutable tuple; None means no hotkeys.
         self._hotkeys: Optional[Tuple[str, ...]] = None
 
         # Filled in by ButtonPad when placed
         self._pos = (0, 0)
         # Tooltip data (managed by ButtonPad on hover)
-        self._tooltip_text = None
+        self._tooltip_text = tooltip or None
         # Tk's `after` can return int or str depending on Tcl/Tk build; accept both
         self._tooltip_after = None
         self._tooltip_window = None
@@ -404,39 +437,99 @@ class _BPBase:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
 
-
 class BPButton(_BPBase):
-    def __init__(self, widget: tk.Widget, text: str):
-        super().__init__(widget, text=text)
-        # default click prints text (ButtonPad calls via dispatcher)
-        self.on_click = lambda el, x, y: print(self.text)
+    def __init__(
+        self,
+        widget: tk.Widget,
+        text: str,
+        *,
+        text_color: Optional[str] = None,
+        bg_color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+        anchor: Optional[str] = "center",
+        on_click: BPCallbackType = None,
+        on_enter: BPCallbackType = None,
+        on_exit: BPCallbackType = None,
+    ) -> None:
+        super().__init__(
+            widget,
+            text,
+            text_color=text_color,
+            bg_color=bg_color,
+            tooltip=tooltip,
+            anchor=anchor,
+            on_click=on_click,
+            on_enter=on_enter,
+            on_exit=on_exit,
+        )
+        # default click prints text (ButtonPad calls via dispatcher) unless overridden
+        if self.on_click is None:
+            # Use a bound lambda that prints the current text property
+            self.on_click = lambda el, x, y: print(self.text)
     # hotkeys are handled on _BPBase.hotkey
 
 
 class BPLabel(_BPBase):
-    def __init__(self, widget: tk.Label, text: str, anchor: str = "center"):
-        super().__init__(widget, text=text)
+    def __init__(
+        self,
+        widget: tk.Label,
+        text: str,
+        *,
+        text_color: Optional[str] = None,
+        bg_color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+        anchor: str = "center",
+        on_click: BPCallbackType = None,
+        on_enter: BPCallbackType = None,
+        on_exit: BPCallbackType = None,
+    ) -> None:
+        super().__init__(
+            widget,
+            text,
+            text_color=text_color,
+            bg_color=bg_color,
+            tooltip=tooltip,
+            anchor=anchor,
+            on_click=on_click,
+            on_enter=on_enter,
+            on_exit=on_exit,
+        )
         self._anchor = anchor
-        widget.configure(anchor=anchor) # pyright: ignore[reportArgumentType]
-    # hotkeys are handled on _BPBase.hotkey
-
-    @property
-    def anchor(self) -> str:
-        return self._anchor
-
-    @anchor.setter
-    def anchor(self, value: str) -> None:
-        self._anchor = value
-        self.widget.configure(anchor=value) # pyright: ignore[reportCallIssue]
+        try:
+            widget.configure(anchor=anchor) # pyright: ignore[reportArgumentType]
+        except Exception:
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # --- hotkey property (same semantics as BPButton.hotkey) ---
     # use hotkey on _BPBase
 
 
 class BPTextBox(_BPBase):
-    def __init__(self, widget: tk.Text, text: str):
+    def __init__(
+        self,
+        widget: tk.Text,
+        text: str,
+        *,
+        text_color: Optional[str] = None,
+        bg_color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+        anchor: Optional[str] = "center",
+        on_click: BPCallbackType = None,
+        on_enter: BPCallbackType = None,
+        on_exit: BPCallbackType = None,
+    ) -> None:
         # Initialize base without relying on textvariable/text configure
-        super().__init__(widget, text=text)
+        super().__init__(
+            widget,
+            text,
+            text_color=text_color,
+            bg_color=bg_color,
+            tooltip=tooltip,
+            anchor=anchor,
+            on_click=on_click,
+            on_enter=on_enter,
+            on_exit=on_exit,
+        )
         # Ensure initial text is shown in Text widget
         try:
             widget.delete("1.0", "end")
