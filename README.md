@@ -2,10 +2,25 @@
 
 ButtonPad lets you create a GUI of a grid of buttons, labels, text boxes, and images using a compact, CSV-like layout string and control it with simple Python callbacks. It’s built on the Tkinter standard library and works on Windows, macOS, and Linux. (On macOS, it optionally uses tkmacosx for better button color support.)
 
+For example, this layout string is for a calculator app:
+
+```
+LAYOUT = """
+'','','',''
+C,(,),⌫
+7,8,9,÷
+4,5,6,x
+1,2,3,-
+0,.,=,+
+"""
+```
+
+
 Key features:
+
 * Pure-Python code that only depends on the standard library, built on top of tkinter. (Pillow is optional.)
 * A CSV-like layout configuration string generates the grid of widgets.
-* Each widget can be assigned functions to handle click, enter, and exit events.
+* Callback functions handle click, enter, and exit events.
 * Each widget can be assigned tool tip text, hotkey mappings, and custom font and colors.
 * Optional status bar with custom colors.
 * Optional menubar configuration.
@@ -28,7 +43,26 @@ bp = buttonpad.ButtonPad(
 	"""1,2,3
 	4,5,6
 	7,8,9
-	*,0,#""",
+	*,0,#
+	Call,Call,Cancel""",
+)
+
+bp.run()
+```
+
+The bottom row has a single "Call" button that is double-wide. The default click callback function prints the label of the button. Here's an expanded version:
+
+```python
+# Phone keypad example
+import buttonpad
+
+# Multi-line string defines 4 rows of 3 cells each (a 3x4 grid).
+bp = buttonpad.ButtonPad(
+	"""1,2,3
+	4,5,6
+	7,8,9
+	*,0,#
+	Call,Call,Cancel""",
 	cell_width=70,
 	cell_height=100,
 	padx=20,
@@ -39,6 +73,8 @@ bp = buttonpad.ButtonPad(
 	window_bg_color='green',	
 	title="Telephone Keypad Demo",
 )
+
+bp.
 
 bp.run()
 ```

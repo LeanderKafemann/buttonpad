@@ -154,10 +154,11 @@ class _BPBase:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
         # Setting the background color, default to system default color.
+
         try:
-            self._background_color = widget.cget("bg")
+            self._bg_color = widget.cget("bg")
         except tk.TclError:
-            self._background_color = "#f0f0f0"
+            self._bg_color = "#f0f0f0"
 
         # Setting the text color, default to black.
         try:
@@ -264,11 +265,11 @@ class _BPBase:
     # ----- colors -----
     @property
     def background_color(self) -> str:
-        return self._background_color
+        return self._bg_color
 
     @background_color.setter
     def background_color(self, value: str) -> None:
-        self._background_color = value
+        self._bg_color = value
         try:
             self.widget.configure(bg=value) # pyright: ignore[reportCallIssue]
         except tk.TclError:
@@ -494,7 +495,7 @@ class BPImage(_BPBase):
         self._photo: Optional[tk.PhotoImage] = None
         self._stretch: bool = False
         try:
-            widget.configure(bg=self._background_color)
+            widget.configure(bg=self._bg_color)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
@@ -632,7 +633,7 @@ class ButtonPad:
         self.padx = int(padx)
         self.pady = int(pady)
         self.window_bg_color = window_bg_color
-        self.default_background_color = default_bg_color
+        self.default_bg_color = default_bg_color
         self.default_text_color = default_text_color
         self.border = int(border)
 
@@ -1301,7 +1302,7 @@ class ButtonPad:
             w = ButtonCls(
                 frame,
                 text=spec.text,
-                bg=self.default_background_color,
+                bg=self.default_bg_color,
                 fg=self.default_text_color,
                 anchor="center",
                 justify="center",
@@ -1359,7 +1360,7 @@ class ButtonPad:
             w = tk.Label(
                 frame,
                 text="",
-                bg=self.default_background_color,
+                bg=self.default_bg_color,
                 fg=self.default_text_color,
                 anchor="center",
                 padx=0,

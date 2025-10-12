@@ -37,6 +37,8 @@ HAZARD_BG = "#ff5a5a"
 BLOCK_BG = "#000000"
 GOAL_BG = "#2ecc71"
 
+INSTRUCTIONS = "WASD/Arrow Keys to move. Get green. Avoid red."
+
 TICK_MS = 140
 SPAWN_PROB_PER_TICK = 0.35
 STARTING_PAUSE_TICKS = 2  # pause duration before hazards start moving
@@ -106,7 +108,7 @@ def draw_all(pad, state: Dict[str, object]) -> None:
 def update_status(pad, state: Dict[str, object]) -> None:
     """Display current score & high score in the status bar."""
     try:
-        pad.status_bar = f"Score: {state['score']}  High score: {state['high_score']}"
+        pad.status_bar = INSTRUCTIONS + f"Score: {state['score']}  High score: {state['high_score']}"
     except Exception:
         pass
 

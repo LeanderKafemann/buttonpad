@@ -4,9 +4,9 @@ import buttonpad
 # ---------- ButtonPad layout ----------
 # Row 0: wide label spanning all 4 columns.
 # Rows 1-5: calculator buttons.
-LAYOUT = """
+LAYOUT = f"""
 '','','',''
-C,(,),⌫
+C,(,),{chr(9003)}
 7,8,9,÷
 4,5,6,x
 1,2,3,-
