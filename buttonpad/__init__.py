@@ -66,9 +66,9 @@ __all__ = [
     "password",
 ]
 
-# ---------- element wrappers ----------
+# ---------- widget wrappers ----------
 
-# All element callbacks receive: (element_object, x, y)
+# All widget callbacks receive: (widget_object, x, y)
 BPWidgetType = Union["BPButton", "BPLabel", "BPTextBox", "BPImage"]
 BPCallbackType = Optional[Callable[["BPWidgetType", int, int], None]]
 
@@ -132,7 +132,6 @@ class _BPBase:
         self,
         widget: tk.Widget,
         text: str = "",
-        *,
         text_color: Optional[str] = None,
         bg_color: Optional[str] = None,
         tooltip: Optional[str] = None,
@@ -375,17 +374,17 @@ class _BPBase:
     # ----- hotkey mapping (unified on base) -----
     @property
     def hotkey(self) -> Optional[Tuple[str, ...]]:
-        """Get or set keyboard hotkeys for this element.
+        """Get or set keyboard hotkeys for this widget.
 
         Accepts None, a single string, or a tuple of strings. Keys are normalized to
         lowercase keysyms and mapped via the owning ButtonPad to trigger this
-        element's on_click when pressed.
+        widget's on_click when pressed.
         """
         return self._hotkeys
 
     @hotkey.setter
     def hotkey(self, value: Optional[Union[str, Tuple[str, ...]]]) -> None:
-        # Remove existing mappings first (only those that point to this element's pos)
+        # Remove existing mappings first (only those that point to this widget's pos)
         try:
             pad = getattr(self, "_buttonpad", None)
             if pad is not None and self._hotkeys:
@@ -442,7 +441,6 @@ class BPButton(_BPBase):
         self,
         widget: tk.Widget,
         text: str,
-        *,
         text_color: Optional[str] = None,
         bg_color: Optional[str] = None,
         tooltip: Optional[str] = None,
@@ -474,7 +472,6 @@ class BPLabel(_BPBase):
         self,
         widget: tk.Label,
         text: str,
-        *,
         text_color: Optional[str] = None,
         bg_color: Optional[str] = None,
         tooltip: Optional[str] = None,
@@ -509,11 +506,10 @@ class BPTextBox(_BPBase):
         self,
         widget: tk.Text,
         text: str,
-        *,
         text_color: Optional[str] = None,
         bg_color: Optional[str] = None,
         tooltip: Optional[str] = None,
-        anchor: Optional[str] = "center",
+        anchor: Optional[str] = None,
         on_click: BPCallbackType = None,
         on_enter: BPCallbackType = None,
         on_exit: BPCallbackType = None,
@@ -577,7 +573,7 @@ class BPImage(_BPBase):
 
     Pillow is optional. Without Pillow only formats supported directly by tk.PhotoImage (e.g. GIF/PNG on many builds) can load,
     and no scaling occurs (unless Pillow is present). Tooltips, background_color, and on_click/on_enter/on_exit are supported
-    the same as other elements.
+    the same as other widgets.
     """
 
     def __init__(self, widget: tk.Label, frame_width: int, frame_height: int):
@@ -770,11 +766,11 @@ class ButtonPad:
         self._container.pack(padx=self.border, pady=self.border, fill="both", expand=True)
 
         # storage: keyed by (x, y) == (col, row)
-        self._cell_to_element = {}
+        self._cell_to_widget = {}
         self._widgets = []
         self._destroyed = False
 
-        # global click hooks (user sets these) — receive the element wrapper
+        # global click hooks (user sets these) — receive the widget wrapper
         self.on_pre_click = None
         self.on_post_click = None
 
@@ -1088,17 +1084,17 @@ class ButtonPad:
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self._widgets.clear()
-        self._cell_to_element.clear()
+        self._cell_to_widget.clear()
 
         self._build_from_config(new_configuration)
 
     # Public accessor uses Cartesian order: [x, y]
     def __getitem__(self, key: Tuple[int, int]) -> BPWidgetType:
-        return self._cell_to_element[tuple(key)]
+        return self._cell_to_widget[tuple(key)]
 
     def map_key(self, key: str, x: int, y: int) -> None:
         """
-        Map a keyboard key to trigger the element at (x, y).
+        Map a keyboard key to trigger the widget at (x, y).
         `key` should be a Tk keysym (e.g., "1", "a", "Escape", "space", "Return").
         """
         if not isinstance(key, str) or not key:
@@ -1119,79 +1115,79 @@ class ButtonPad:
         pos = self._keymap.get(ks)  # (x, y)
         if pos is None:
             return
-        element = self._cell_to_element.get(pos)  # keyed by (x, y)
-        if element is not None:
-            self._fire_click(element)
+        widget = self._cell_to_widget.get(pos)  # keyed by (x, y)
+        if widget is not None:
+            self._fire_click(widget)
 
-    def _fire_click(self, element: BPWidgetType) -> None:
-        """Invoke pre->on_click->post sequence safely, delivering (element, x, y)."""
-        x, y = element._pos  # set during placement
+    def _fire_click(self, widget: BPWidgetType) -> None:
+        """Invoke pre->on_click->post sequence safely, delivering (widget, x, y)."""
+        x, y = widget._pos  # set during placement
         # Hide tooltip upon click
         try:
-            self._tooltip_hide(element)
+            self._tooltip_hide(widget)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if self.on_pre_click:
-                self.on_pre_click(element)
+                self.on_pre_click(widget)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
-            if element.on_click:
-                element.on_click(element, x, y)
+            if widget.on_click:
+                widget.on_click(widget, x, y)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
             if self.on_post_click:
-                self.on_post_click(element)
+                self.on_post_click(widget)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
-    def _fire_enter(self, element: BPWidgetType) -> None:
-        x, y = element._pos
+    def _fire_enter(self, widget: BPWidgetType) -> None:
+        x, y = widget._pos
         # Schedule tooltip show if present
         try:
-            self._tooltip_schedule(element)
+            self._tooltip_schedule(widget)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
-            if element.on_enter:
-                element.on_enter(element, x, y)
+            if widget.on_enter:
+                widget.on_enter(widget, x, y)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
-    def _fire_exit(self, element: BPWidgetType) -> None:
-        x, y = element._pos
+    def _fire_exit(self, widget: BPWidgetType) -> None:
+        x, y = widget._pos
         # Hide tooltip on exit
         try:
-            self._tooltip_hide(element)
+            self._tooltip_hide(widget)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         try:
-            if element.on_exit:
-                element.on_exit(element, x, y)
+            if widget.on_exit:
+                widget.on_exit(widget, x, y)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     # ----- tooltip helpers (no idlelib) -----
-    def _tooltip_schedule(self, element: BPWidgetType) -> None:
-        text = getattr(element, "_tooltip_text", None)
+    def _tooltip_schedule(self, widget: BPWidgetType) -> None:
+        text = getattr(widget, "_tooltip_text", None)
         if not text:
             return
         # cancel previous timer
-        after_id = getattr(element, "_tooltip_after", None)
+        after_id = getattr(widget, "_tooltip_after", None)
         if after_id:
             try:
                 self.root.after_cancel(after_id)  # type: ignore[arg-type]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-        element._tooltip_after = self.root.after(350, lambda e=element: self._tooltip_show(e))
+        widget._tooltip_after = self.root.after(350, lambda e=widget: self._tooltip_show(e))
 
-    def _tooltip_show(self, element: BPWidgetType) -> None:
-        text = getattr(element, "_tooltip_text", None)
+    def _tooltip_show(self, widget: BPWidgetType) -> None:
+        text = getattr(widget, "_tooltip_text", None)
         if not text:
             return
-        tw = getattr(element, "_tooltip_window", None)
+        tw = getattr(widget, "_tooltip_window", None)
         if tw is None:
             tw = tk.Toplevel(self.root)
             tw.wm_overrideredirect(True)
@@ -1203,7 +1199,7 @@ class ButtonPad:
             frame.pack(fill="both", expand=True)
             label = tk.Label(frame, text=text, bg="#333333", fg="white", padx=6, pady=3, justify="left")
             label.pack()
-            element._tooltip_window = tw
+            widget._tooltip_window = tw
         else:
             # update text
             try:
@@ -1221,21 +1217,21 @@ class ButtonPad:
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
-    def _tooltip_hide(self, element: BPWidgetType) -> None:
-        after_id = getattr(element, "_tooltip_after", None)
+    def _tooltip_hide(self, widget: BPWidgetType) -> None:
+        after_id = getattr(widget, "_tooltip_after", None)
         if after_id:
             try:
                 self.root.after_cancel(after_id)  # type: ignore[arg-type]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-        element._tooltip_after = None
-        tw = getattr(element, "_tooltip_window", None)
+        widget._tooltip_after = None
+        tw = getattr(widget, "_tooltip_window", None)
         if tw is not None:
             try:
                 tw.destroy()
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-        element._tooltip_window = None
+        widget._tooltip_window = None
 
     def _build_from_config(self, configuration: str) -> None:
         grid_specs = self._parse_configuration(configuration)
@@ -1407,12 +1403,12 @@ class ButtonPad:
                 **extra_kwargs,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element: BPWidgetType = BPButton(w, text=spec.text)
+            widget: BPWidgetType = BPButton(w, text=spec.text)
             try:
-                element._buttonpad = self  # type: ignore[attr-defined]
+                widget._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-            w.configure(command=lambda e=element: self._fire_click(e)) # pyright: ignore[reportCallIssue]
+            w.configure(command=lambda e=widget: self._fire_click(e)) # pyright: ignore[reportCallIssue]
 
         elif spec.kind == "label":
             w = tk.Label(
@@ -1426,12 +1422,12 @@ class ButtonPad:
                 highlightthickness=0,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
+            widget = BPLabel(w, text=spec.text, anchor=spec.anchor or "center")
             try:
-                element._buttonpad = self  # type: ignore[attr-defined]
+                widget._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
 
         elif spec.kind == "entry":
             w = tk.Text(
@@ -1440,14 +1436,17 @@ class ButtonPad:
                 highlightthickness=0,
                 wrap="word",
                 bd=1,
+                bg=self.default_bg_color,     # match other widgets
+                fg=self.default_text_color,   # match other widgets
+                insertbackground=self.default_text_color,  # cursor color on some platforms
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPTextBox(w, text=spec.text)
+            widget = BPTextBox(w, text=spec.text)
             try:
-                element._buttonpad = self  # type: ignore[attr-defined]
+                widget._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
 
         elif spec.kind == "image":
             w = tk.Label(
@@ -1462,14 +1461,14 @@ class ButtonPad:
                 bd=0,
             )
             w.place(relx=0, rely=0, relwidth=1.0, relheight=1.0)
-            element = BPImage(w, frame_width=width, frame_height=height)
+            widget = BPImage(w, frame_width=width, frame_height=height)
             try:
-                element._buttonpad = self  # type: ignore[attr-defined]
+                widget._buttonpad = self  # type: ignore[attr-defined]
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-            w.bind("<ButtonRelease-1>", lambda evt, e=element: self._fire_click(e))
+            w.bind("<ButtonRelease-1>", lambda evt, e=widget: self._fire_click(e))
             try:
-                frame.bind("<Configure>", lambda evt, e=element: e._on_container_resize(evt.width, evt.height))
+                frame.bind("<Configure>", lambda evt, e=widget: e._on_container_resize(evt.width, evt.height))
             except Exception:
                 logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             # Auto-load image if token suffix references an existing file (absolute, ~, or relative).
@@ -1485,7 +1484,7 @@ class ButtonPad:
                             # Absolute path (including ~ expanded): use as-is
                             if p.exists():
                                 try:
-                                    element.image = p
+                                    widget.image = p
                                 except Exception:
                                     logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
                         else:
@@ -1493,7 +1492,7 @@ class ButtonPad:
                             cwd_p = Path.cwd() / expanded
                             if cwd_p.exists():
                                 try:
-                                    element.image = cwd_p
+                                    widget.image = cwd_p
                                 except Exception:
                                     logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
             except Exception:
@@ -1501,14 +1500,14 @@ class ButtonPad:
         else:
             raise ValueError(f"Unknown spec kind: {spec.kind}")
 
-        element._pos = (c, r)
-        w.bind("<Enter>", lambda evt, e=element: self._fire_enter(e))
-        w.bind("<Leave>", lambda evt, e=element: self._fire_exit(e))
+        widget._pos = (c, r)
+        w.bind("<Enter>", lambda evt, e=widget: self._fire_enter(e))
+        w.bind("<Leave>", lambda evt, e=widget: self._fire_exit(e))
         for rr in range(r, r + rowspan):
             for cc in range(c, c + colspan):
-                self._cell_to_element[(cc, rr)] = element
+                self._cell_to_widget[(cc, rr)] = widget
         self._widgets.append(frame)
-        self._widgets.append(element.widget)
+        self._widgets.append(widget.widget)
 
     # ----- config parsing -----
     def _parse_configuration(self, configuration: str) -> List[List[Optional[_Spec]]]:

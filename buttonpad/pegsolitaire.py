@@ -215,7 +215,7 @@ def rebind_menu() -> None:
         bp.menu = {
             "File": {
                 "New Game": (new_game, "Cmd+N"),
-                "Quit": (sys.exit, "Cmd+Q"),
+                "Quit": (bp.quit, "Cmd+Q"),
             }
         }
 
