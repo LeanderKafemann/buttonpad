@@ -83,7 +83,7 @@ def all_cells() -> List[Coord]:
 def set_cell(x: int, y: int, bg: str, text: str = "", fg: str = WHITE, size: int | None = None) -> None:
     """Convenience: update background, text, text color, and optionally font size."""
     el = pad[x, y]  # type: ignore[index]
-    el.background_color = bg
+    el.bg_color = bg
     el.text_color = fg
     el.text = text
     if size is not None:

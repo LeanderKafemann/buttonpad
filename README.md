@@ -27,7 +27,7 @@ Key features:
 * PyMsgBox dialog boxes: `alert()`, `confirm()`, `prompt()`, `password()`
 
 
-## Quick Start with the Launcher
+## Check Out Demo Programs with the Launcher
 
 Run `python -m buttonpad` to run the launcher program to view several demo programs and games made with Buttonpad.
 
@@ -46,14 +46,9 @@ Run `python -m buttonpad` to run the launcher program to view several demo progr
 
 
 
+## Quick Start Example Code
 
-
-
-
-
-
-
-## Example Code
+Here's a complete program for a simulated keypad. By default, buttons print their text with `print()`:
 
 ```python
 # Phone keypad example
@@ -69,10 +64,16 @@ bp = buttonpad.ButtonPad(
     Call,Call,Cancel""",
 )
 
-bp.run()
+bp.run()  # run the app
 ```
 
-The bottom row has a single "Call" button that is double-wide. The default click callback function prints the label of the button. Here's an expanded version:
+The buttonpad grid is split by commas and newlines.
+
+The top row has empty square brackets to create an empty text box. Since all three have the same text (nothing), they are merged into one 3x1 text box.
+
+Text without square brackets create buttons with the text as the button text.
+
+The bottom row has two "Call" text which merges into a single 2x1 button labelled "Call". The default click callback function prints the label of the button. Here's an expanded version:
 
 ```python
 # Phone keypad example
@@ -86,23 +87,27 @@ bp = buttonpad.ButtonPad(
 	7,8,9
 	*,0,#
 	Call,Call,Cancel""",
-	cell_width=100,
-	cell_height=60,
-	padx=10,
-	pady=5,
-	border=20,
-	#default_bg_color='lightblue',
-	#default_text_color='darkblue',
-	#window_bg_color='whitesmoke',	
-	title="Telephone Keypad Demo",
+	cell_width=100,  # width of each cell, in pixels
+	cell_height=60,  # height of each cell, in pixels
+	padx=10,  # horizontal padding in between cells, in pixels
+	pady=5,  # vertical padding in between cells, in pixels
+	border=20,  # padding at the edges of the window, in pixels
+	default_bg_color='lightblue',  # background color of widgets (buttons, etc)
+	default_text_color='darkblue', # color of widget text
+	window_bg_color='whitesmoke',  # background color of the window
+	title="Telephone Keypad Demo",  # title text of the app window
 )
+
+# Callback functions receive three arguments: the widget object that
+# was clicked/entered/exited, and the xy position of the widget in the
+# buttonpad grid.
 
 # Create callback functions for the buttons:
 def cancel_call(widget, x, y):
     bp[0,0].text = ''  # Clear the display
 
 def call_number(widget, x, y):
-    buttonpad.alert("Simulate calling " + bp[0,0].text)  # Show an alert with the number being called
+    buttonpad.alert("Simulate calling " + bp[0,0].text)  # Show alert dialog
 
 def add_button_label_to_display(widget, x, y):
     bp[0, 0].text += widget.text  # Append the pressed key to the display
@@ -118,31 +123,22 @@ bp[0, 5].on_click = call_number  # Call button
 
 bp[0, 0].font_size = 24  # Make the display text larger
 
-# Run the app:
-bp.run()
+bp.run()  # run the app
 ```
 
 
-## Layout string reference
+## Configuring the GUI with a Layout String
 
-The grid is described by a CSV-like string: commas separate columns, newlines separate rows.
+The multiline string of comma-separated widgets in ButtonPad is called the *layout string*: commas separate columns, newlines separate rows. You can specify different user interface (UI) widgets in this string:
 
-Token types:
-- Button (default): any unquoted text, e.g. `A`, `Click`, `7` (or prefix with `BUTTON:`)
-- Label: text wrapped in single or double quotes, e.g. `'Hello'` or `"Ready"` (or prefix with `LABEL:`)
-- Text box (multiline and editable): text wrapped in square brackets, e.g. `[Name]` (or prefix with `TEXTBOX:`)
+- Buttons: any unquoted text, e.g. `A`, `Click`, `7` (or prefixed with `BUTTON:`)
+- Label: uneditable text enclosed in single or double quotes, e.g. `'Hello'` or `"Ready"` (or prefix with `LABEL:`)
+- Text box (multiline and editable): text enclosed in square brackets, e.g. `[Name]` (or prefix with `TEXTBOX:`)
 - Image: Prefix with `IMAGE:` followed by the image filename.
-- No-merge: prefix a token with a backtick to prevent merging, e.g. `` `X``
-- Empty token: an empty cell becomes an empty button
 
-Merging rules:
-- Adjacent identical tokens merge into one larger element (row/column spanning).
-- Merging is rectangular: a block of identical tokens forms a single widget.
-- Prefixing a token with a backtick ` prevents merging for that cell only.
+Widgets with the same text in a rectangular area in the layout string will be merged into a single widget. If you want to have separate, unmerged widgets with the same name, put a backtick prefix.
 
-Examples:
-
-This creates a top row with three buttons (labelled "A", "B", and "C"). The second row is a single wide, 3x1 cell button labelled "Play". The third row has two text labels that say "Status" and "Enabled", next to a text box with the placeholder text, "Name". The bottom row has three separate buttons, each labelled "Start":
+For example, this creates a top row with three buttons (labelled "A", "B", and "C"). The second row is a single wide, 3x1 cell button labelled "Play". The third row has two text labels that say "Status" and "Enabled", next to a text box with the placeholder text, "Name". The bottom row has three separate buttons, each labelled "Start":
 
 ```
 A,B,C
@@ -150,6 +146,28 @@ Play,Play,Play
 "Status","Enabled",[Name]
 `Start,`Start,`Start
 ```
+
+TODO: Add feature to allow escape characters so commas can be the text. Also check that a backtick prefix before a "BUTTON:" prefix still works.
+
+
+## Setting Event Callback Functions for Click, Enter, and Exit Handlers
+
+Callback functions receive three arguments: the widget object that was clicked/entered/exited, and the xy position of the widget in the buttonpad grid.
+
+
+
+## Extra Widget Features: Tooltips, Custom Colors, Custom Fonts
+
+Widgets (buttons, text boxes, etc.) have the following attributes that you can change:
+
+* `text` - The text label or text contents of the widget.
+* `tooltip` - The tooltip text that appears when the mouse cursor hovers over the widget.
+* `text_color` - The color of the text label or text contents.
+* `bg_color`
+
+## Extra Window Features: Resizeable Windows, Status Bar, and Menu Bar
+
+TODO
 
 ## API
 
@@ -183,10 +201,10 @@ Notes:
 
 Instance methods and properties:
 - `run()` — start the Tkinter event loop.
-- `quit()` — close the window (idempotent).
+- `quit()` — quit the program.
 - `update(new_layout: str)` — rebuild the grid from a new layout string.
 - `[x, y]` — index into the grid to get an element wrapper at column x, row y.
-- Status bar: `status_bar` (string or None) plus `status_bar_background_color`, `status_bar_text_color`.
+- Status bar: `status_bar` (string or None) plus `status_bar_bg_color`, `status_bar_text_color`.
 - Menu: assign a nested dict to `menu` to build a menubar with optional accelerators.
 - Global hooks: `on_pre_click(element)`, `on_post_click(element)` called around every click.
 
@@ -201,7 +219,7 @@ Re-exported dialogs from pymsgbox:
 
 All wrappers expose:
 - `text: str` — get/set the visible text.
-- `background_color: str` — get/set background color.
+- `bg_color: str` — get/set background color.
 - `text_color: str` — get/set text/foreground color.
 - `font_name: str` and `font_size: int` — change font.
 - `tooltip: Optional[str]` — small hover tooltip; set to a string to enable, `None`/`""` to disable.

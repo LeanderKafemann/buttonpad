@@ -93,16 +93,16 @@ def main() -> None:
         """Update the GUI color of the cell at (x,y) for player 'who'."""
         el = pad[x, y]  # type: ignore[index]
         if who == 1:
-            el.background_color = WHITE_BG
+            el.bg_color = WHITE_BG
         else:
-            el.background_color = BLACK_BG
+            el.bg_color = BLACK_BG
 
     def clear_board() -> None:
         """Reset board state and visuals for a new game."""
         for y in range(SIZE):
             for x in range(SIZE):
                 board[y][x] = 0
-                pad[x, y].background_color = EMPTY_BG  # type: ignore[index]
+                pad[x, y].bg_color = EMPTY_BG  # type: ignore[index]
         turn["who"] = 1
         game["over"] = False
 

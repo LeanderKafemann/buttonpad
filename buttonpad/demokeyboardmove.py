@@ -68,12 +68,12 @@ def main() -> None:
 
     def highlight(x: int, y: int) -> None:
         """Visually mark the cursor cell at (x,y)."""
-        pad[x, y].background_color = CURSOR_BG  # type: ignore[index]
+        pad[x, y].bg_color = CURSOR_BG  # type: ignore[index]
         pad[x, y].text = ""  # keep it clean (no letter needed)
 
     def unhighlight(x: int, y: int) -> None:
         """Return a cell to the normal background color."""
-        pad[x, y].background_color = default_bg  # type: ignore[index]
+        pad[x, y].bg_color = default_bg  # type: ignore[index]
         pad[x, y].text = ""
 
     def move_to(nx: int, ny: int) -> None:

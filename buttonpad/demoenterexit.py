@@ -32,7 +32,7 @@ def on_enter(widget, x, y):
         x, y: The coordinates of the cell in the grid.
     """
     print(f"Entered {x}, {y}")  # Show event in terminal
-    widget.background_color = "lightblue"  # Highlight cell under cursor
+    widget.bg_color = "lightblue"  # Highlight cell under cursor
 
 def on_exit(widget, x, y):
     """Called when mouse cursor leaves a cell.
@@ -40,7 +40,7 @@ def on_exit(widget, x, y):
     We revert the highlight color back to the default.
     """
     print(f"Exited {x}, {y}")
-    widget.background_color = "lightgray"
+    widget.bg_color = "lightgray"
 
 for x in range(6):
     for y in range(6):

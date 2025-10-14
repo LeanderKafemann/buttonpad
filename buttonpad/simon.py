@@ -81,7 +81,7 @@ def main() -> None:
         for x in range(COLS):
             idx = y * COLS + x
             el = pad[x, y]  # type: ignore[index]
-            el.background_color = BASE_COLORS[idx]
+            el.bg_color = BASE_COLORS[idx]
             el.text = label_chars[idx]
             try:
                 el.text_color = subtle_text_colors[idx]
@@ -98,7 +98,7 @@ def main() -> None:
     def set_lit(idx: int, lit: bool) -> None:
         """Turn a quadrant on (bright) or off (base)."""
         x, y = idx % COLS, idx // COLS
-        pad[x, y].background_color = (LIT_COLORS[idx] if lit else BASE_COLORS[idx])  # type: ignore[index]
+        pad[x, y].bg_color = (LIT_COLORS[idx] if lit else BASE_COLORS[idx])  # type: ignore[index]
 
     def flash_idx(idx: int, on_ms: int, after_cb) -> None:
         """Flash a single index for on_ms then call after_cb."""

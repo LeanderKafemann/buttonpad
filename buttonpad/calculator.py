@@ -86,24 +86,24 @@ def main() -> None:
 
     # The display is the merged label at the top-left cell (it spans all columns).
     display.anchor = 'w'
-    display.background_color = "white"
+    display.bg_color = "white"
     display.font_size = 18
     display.text = ""  # start empty
 
     # Set up clear button:
-    clear_button.background_color = "#7a1f1f"
+    clear_button.bg_color = "#7a1f1f"
     clear_button.text_color = "white"
     clear_button.on_click = handle_click_clear
     clear_button.hotkey = ("Escape", "c")
 
     # Set up equal button:
-    equal_button.background_color = "#007acc"
+    equal_button.bg_color = "#007acc"
     equal_button.text_color = "white"
     equal_button.on_click = handle_click_equals
     equal_button.hotkey = "Return"  # Enter key
 
     # Set up backspace button:
-    backspace_button.background_color = "#444444"
+    backspace_button.bg_color = "#444444"
     backspace_button.text_color = "white"
     backspace_button.on_click = handle_click_backspace
     backspace_button.hotkey = "BackSpace"
@@ -111,7 +111,7 @@ def main() -> None:
     # Set up math operator buttons:
     for y in range(2, 6):
         bp[3, y].on_click = handle_click_button
-        bp[3, y].background_color = "#3a3a3a"
+        bp[3, y].bg_color = "#3a3a3a"
         bp[3, y].text_color = "white"
     
     # Setup hotkeys:

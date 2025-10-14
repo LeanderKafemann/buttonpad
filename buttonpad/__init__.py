@@ -176,11 +176,11 @@ class _BPBase:
             default_fg = "black"
 
         # Store and apply background color (if provided)
-        self._background_color = default_bg
+        self._bg_color = default_bg
         if bg_color is not None:
             try:
                 self.widget.configure(bg=bg_color) # pyright: ignore[reportCallIssue]
-                self._background_color = bg_color
+                self._bg_color = bg_color
             except Exception:
                 # fall back to default already stored
                 pass
@@ -296,11 +296,11 @@ class _BPBase:
 
     # ----- colors -----
     @property
-    def background_color(self) -> str:
+    def bg_color(self) -> str:
         return self._bg_color
 
-    @background_color.setter
-    def background_color(self, value: str) -> None:
+    @bg_color.setter
+    def bg_color(self, value: str) -> None:
         self._bg_color = value
         try:
             self.widget.configure(bg=value) # pyright: ignore[reportCallIssue]
@@ -572,7 +572,7 @@ class BPImage(_BPBase):
             - stretch=True: forcibly resize image to exactly the frame size (aspect ratio may change).
 
     Pillow is optional. Without Pillow only formats supported directly by tk.PhotoImage (e.g. GIF/PNG on many builds) can load,
-    and no scaling occurs (unless Pillow is present). Tooltips, background_color, and on_click/on_enter/on_exit are supported
+    and no scaling occurs (unless Pillow is present). Tooltips, bg_color, and on_click/on_enter/on_exit are supported
     the same as other widgets.
     """
 
@@ -882,12 +882,12 @@ class ButtonPad:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
     @property
-    def status_bar_background_color(self) -> str:
-        """Background color for the status bar. Defaults to window_background_color."""
+    def status_bar_bg_color(self) -> str:
+        """Background color for the status bar. Defaults to window_bg_color."""
         return self._status_bg_color
 
-    @status_bar_background_color.setter
-    def status_bar_background_color(self, value: str) -> None:
+    @status_bar_bg_color.setter
+    def status_bar_bg_color(self, value: str) -> None:
         self._status_bg_color = str(value)
         # Update live widgets if present
         if self._status_frame is not None:

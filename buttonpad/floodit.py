@@ -132,7 +132,7 @@ def update_board_ui() -> None:
         for x in range(COLS):
             el = pad[x, y]  # type: ignore[index]
             el.text = ""
-            el.background_color = PALETTE[board[(x, y)]]
+            el.bg_color = PALETTE[board[(x, y)]]
 
 
 def update_scores_ui(seed_val: int) -> None:
@@ -250,7 +250,7 @@ def main() -> None:
     # Style palette buttons (color blocks with no text)
     for i, el in enumerate(palette_buttons):
         el.text = ""
-        el.background_color = PALETTE[i]
+        el.bg_color = PALETTE[i]
 
     # Multi-line labels (newlines inserted programmatically)
     seed_label.text = "Puzzle\nSeed:"

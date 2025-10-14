@@ -68,7 +68,7 @@ def update_ui(pad, board: BoardType) -> None:
             el = pad[x, y]  # type: ignore[index]
             idx = board[(x, y)]
             el.text = ""
-            el.background_color = EMPTY_BG if idx is None else PALETTE[idx]
+            el.bg_color = EMPTY_BG if idx is None else PALETTE[idx]
 
 
 def cluster_at(board: BoardType, x0: int, y0: int) -> List[Coord]:

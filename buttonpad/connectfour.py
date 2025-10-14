@@ -90,9 +90,9 @@ def new_game() -> None:
         for r in range(ROWS):
             board[(c, r)] = 0
             cell = cells[c][r]
-            cell.background_color = EMPTY_COLOR
+            cell.bg_color = EMPTY_COLOR
     for btn in buttons:
-        btn.background_color = BTN_BG
+        btn.bg_color = BTN_BG
         btn.text_color = BTN_FG
     current = 1
     game_over = False
@@ -108,7 +108,7 @@ def drop(col: int) -> None:
         return
     player = current
     board[(col, row)] = player
-    cells[col][row].background_color = color_for(player)
+    cells[col][row].bg_color = color_for(player)
     if check_win(col, row, player):
         game_over = True
         try:

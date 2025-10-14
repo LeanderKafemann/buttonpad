@@ -85,10 +85,10 @@ def redraw(pad: ButtonPad, state: List[List[bool]]) -> None:
         for x in range(GRID_W):
             el = pad[x, y]
             if state[y][x]:
-                el.background_color = ON_BG
+                el.bg_color = ON_BG
                 el.text_color = ON_FG
             else:
-                el.background_color = OFF_BG
+                el.bg_color = OFF_BG
                 el.text_color = OFF_FG
 
 
@@ -97,7 +97,7 @@ def set_all(pad: ButtonPad, bg: str, fg: str) -> None:
     for y in range(GRID_H):
         for x in range(GRID_W):
             el = pad[x, y]
-            el.background_color = bg
+            el.bg_color = bg
             el.text_color = fg
 
 

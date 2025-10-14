@@ -92,9 +92,9 @@ def redraw() -> None:
             
             # Choose background color: red for attacking queens, otherwise checkerboard
             if (x, y) in attacking_positions:
-                cell.background_color = "#ff6666"  # light red for attacking queens
+                cell.bg_color = "#ff6666"  # light red for attacking queens
             else:
-                cell.background_color = square_color(x, y)  # normal checkerboard
+                cell.bg_color = square_color(x, y)  # normal checkerboard
 
 
 def toggle(_el, x: int, y: int) -> None:

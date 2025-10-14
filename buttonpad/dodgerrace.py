@@ -93,7 +93,7 @@ def draw_cell(pad, state: Dict[str, object], x: int, y: int) -> None:
     else:
         bg = WINDOW_BG
     try:
-        el.background_color = bg
+        el.bg_color = bg
     except Exception:
         pass  # Some environments might not allow color change; ignore.
 

@@ -66,7 +66,7 @@ def main() -> None:
         """Store palette index for (x,y) and repaint its background."""
         board[y][x] = idx % len(PALETTE)
         el = pad[x, y]  # type: ignore[index]
-        el.background_color = PALETTE[board[y][x]]
+        el.bg_color = PALETTE[board[y][x]]
         el.text = ""
 
     def cycle_color(el, x: int, y: int) -> None:

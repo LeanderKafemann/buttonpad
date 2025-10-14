@@ -137,11 +137,11 @@ def set_cell_color(pad, x: int, y: int, who: int) -> None:
     """Paint the background color for the disc value at (x,y)."""
     el = pad[x, y]  # type: ignore[index]
     if who == EMPTY:
-        el.background_color = BOARD_BG
+        el.bg_color = BOARD_BG
     elif who == WHITE:
-        el.background_color = WHITE_BG
+        el.bg_color = WHITE_BG
     else:
-        el.background_color = BLACK_BG
+        el.bg_color = BLACK_BG
 
 
 def update_status(pad, board: BoardType) -> None:

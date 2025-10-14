@@ -253,7 +253,7 @@ def main() -> None:
     # Style category buttons and add tooltips with category names.
     for x, cat in enumerate(CATEGORIES):
         btn = cat_buttons[x]
-        btn.background_color = TOP_BG
+        btn.bg_color = TOP_BG
         btn.font_name = EMOJI_FONT
         btn.font_size = 20
         try:

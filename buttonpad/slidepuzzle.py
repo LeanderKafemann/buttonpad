@@ -138,10 +138,10 @@ def main() -> None:
                 v = board[y][x]
                 if v == 0:
                     el.text = ""
-                    el.background_color = EMPTY_BG
+                    el.bg_color = EMPTY_BG
                 else:
                     el.text = str(v)
-                    el.background_color = TILE_BG
+                    el.bg_color = TILE_BG
                 el.font_size = FONT_SIZE
 
     def neighbors(x: int, y: int) -> List[Coord]:

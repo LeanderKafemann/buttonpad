@@ -60,11 +60,11 @@ def set_cell_color(pad, board: BoardType, x: int, y: int, who: int) -> None:
     """Apply appropriate background color for board cell (x,y)."""
     widget = pad[x, y]  # type: ignore[index]
     if who == 0:
-        widget.background_color = BOARD_BG
+        widget.bg_color = BOARD_BG
     elif who == 1:
-        widget.background_color = WHITE_BG
+        widget.bg_color = WHITE_BG
     else:
-        widget.background_color = BLACK_BG
+        widget.bg_color = BLACK_BG
 
 
 def update_status(pad, board: BoardType) -> None:

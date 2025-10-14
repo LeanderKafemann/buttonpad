@@ -76,9 +76,9 @@ def main() -> None:
         for x in range(COLS):
             el = bp[x, y]
             if y == SAND_ROW:
-                el.background_color = SAND_COLOR
+                el.bg_color = SAND_COLOR
             else:
-                el.background_color = WATER_COLOR
+                el.bg_color = WATER_COLOR
             el.text = ""
 
     # Occupancy of all animated emojis (both water and bottom)

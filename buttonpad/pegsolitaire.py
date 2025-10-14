@@ -103,7 +103,7 @@ def apply_cell_style(x: int, y: int) -> None:
     if val == -1:
         el.text = ""
         try:
-            el.background_color = WINDOW_BG
+            el.bg_color = WINDOW_BG
         except Exception:
             pass
         return
@@ -118,9 +118,9 @@ def apply_cell_style(x: int, y: int) -> None:
         base_bg = HOLE_BG
     if selected == (x, y) and val == 1:
     # Highlight currently selected peg so user knows which piece will move
-        el.background_color = SELECT_BG
+        el.bg_color = SELECT_BG
     else:
-        el.background_color = base_bg
+        el.bg_color = base_bg
     try:
         el.font_size = 20
     except Exception:

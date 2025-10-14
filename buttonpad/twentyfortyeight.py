@@ -62,7 +62,7 @@ def update_ui(pad, board: BoardType) -> None:
             el.text = str(val) if val else ""
             el.text_color = TEXT_COLOR
             el.font_size = FONT_SIZE
-            el.background_color = TILE_BG.get(val, DEFAULT_TILE_BG)
+            el.bg_color = TILE_BG.get(val, DEFAULT_TILE_BG)
 
 def empty_positions(board: BoardType) -> List[Tuple[int, int]]:
     """Return list of coordinates currently holding 0 (empty)."""

@@ -76,13 +76,13 @@ def set_cell_ui(x: int, y: int) -> None:
     val = board[(x, y)]
     if matched[(x, y)]:
         el.text = val
-        el.background_color = MATCHED_BG
+        el.bg_color = MATCHED_BG
     elif revealed[(x, y)]:
         el.text = val
-        el.background_color = REVEAL_BG
+        el.bg_color = REVEAL_BG
     else:
         el.text = ""
-        el.background_color = HIDDEN_BG
+        el.bg_color = HIDDEN_BG
     el.text_color = TEXT_COLOR
     el.font_size = FONT_SIZE
 
@@ -208,7 +208,7 @@ def main() -> None:
             pad[x, y].on_click = on_cell_click  # type: ignore[index]
             el = pad[x, y]  # type: ignore[index]
             el.text = ""  # Start hidden
-            el.background_color = HIDDEN_BG
+            el.bg_color = HIDDEN_BG
             el.text_color = TEXT_COLOR
             el.font_size = FONT_SIZE
     new_game()

@@ -102,7 +102,7 @@ def set_cell(pad, board: BoardType, x: int, y: int, val: int) -> None:
 	"""Set a single cell's value and immediately update its visual appearance."""
 	board[(x, y)] = 1 if val else 0
 	el = pad[x, y]  # type: ignore[index]
-	el.background_color = ON_BG if board[(x, y)] else OFF_BG
+	el.bg_color = ON_BG if board[(x, y)] else OFF_BG
 	el.text = ""
 
 
@@ -111,7 +111,7 @@ def update_grid(pad, board: BoardType) -> None:
 	for y in range(ROWS):
 		for x in range(COLS):
 			el = pad[x, y]  # type: ignore[index]
-			el.background_color = ON_BG if board[(x, y)] else OFF_BG
+			el.bg_color = ON_BG if board[(x, y)] else OFF_BG
 			el.text = ""
 
 
