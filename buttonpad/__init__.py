@@ -45,6 +45,36 @@ def __FUNC__():
     return inspect.getframeinfo(inspect.currentframe().f_back).function  # type: ignore
 
 
+def _normalize_color(value: Optional[Union[str, Tuple[int, int, int], Sequence[int]]]) -> Optional[str]:
+    """
+    Normalize a color value to a Tk-friendly hex string.
+
+    Accepts:
+      - None -> None
+      - str (e.g. "#ff0000", "red") -> returned unchanged
+      - tuple/list of three ints (r,g,b) where each is 0..255 -> "#rrggbb"
+
+    Returns a string suitable for Tk (or None).
+    Raises TypeError/ValueError on clearly invalid inputs.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (tuple, list)):
+        if len(value) != 3:
+            raise ValueError("RGB tuple/list must have length 3")
+        try:
+            r, g, b = int(value[0]), int(value[1]), int(value[2])
+        except Exception as e:
+            raise TypeError("RGB components must be integers") from e
+        for comp in (r, g, b):
+            if comp < 0 or comp > 255:
+                raise ValueError("RGB components must be in range 0..255")
+        return f"#{r:02x}{g:02x}{b:02x}"
+    raise TypeError("color must be a string or an (r,g,b) tuple/list")
+
+
 # --- Optional macOS support for colorable buttons ---
 # This was added because tk.Button on macOS does not support bg/fg color changes.
 # Hence we try to load the https://pypi.org/project/tkmacosx/ package if available.
@@ -132,8 +162,8 @@ class _BPBase:
         self,
         widget: tk.Widget,
         text: str = "",
-        text_color: Optional[str] = None,
-        bg_color: Optional[str] = None,
+        text_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
+        bg_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
         tooltip: Optional[str] = None,
         anchor: Optional[str] = "center",
         on_click: BPCallbackType = None,
@@ -179,21 +209,30 @@ class _BPBase:
         self._bg_color = default_bg
         if bg_color is not None:
             try:
-                self.widget.configure(bg=bg_color) # pyright: ignore[reportCallIssue]
-                self._bg_color = bg_color
+                nbg = _normalize_color(bg_color) or bg_color
+                try:
+                    self.widget.configure(bg=nbg) # pyright: ignore[reportCallIssue]
+                    self._bg_color = nbg
+                except Exception:
+                    # fall back to default already stored
+                    pass
             except Exception:
-                # fall back to default already stored
-                pass
+                # invalid color input - ignore and leave default
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: invalid bg_color")
 
         # Store and apply text color (if provided)
         self._text_color = default_fg
         if text_color is not None:
             try:
-                self.widget.configure(fg=text_color) # pyright: ignore[reportCallIssue]
-                self._text_color = text_color
+                nt = _normalize_color(text_color) or text_color
+                try:
+                    self.widget.configure(fg=nt) # pyright: ignore[reportCallIssue]
+                    self._text_color = nt
+                except Exception:
+                    # fall back to default already stored
+                    pass
             except Exception:
-                # fall back to default already stored
-                pass
+                logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: invalid text_color")
 
         # text/label/button anchor (left/center/right semantics)
         self._anchor = (anchor or "center")
@@ -300,10 +339,15 @@ class _BPBase:
         return self._bg_color
 
     @bg_color.setter
-    def bg_color(self, value: str) -> None:
-        self._bg_color = value
+    def bg_color(self, value: Union[str, Tuple[int, int, int], Sequence[int]]) -> None:
         try:
-            self.widget.configure(bg=value) # pyright: ignore[reportCallIssue]
+            n = _normalize_color(value) or value
+        except Exception:
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: invalid color")
+            return
+        self._bg_color = n
+        try:
+            self.widget.configure(bg=n) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
@@ -312,10 +356,15 @@ class _BPBase:
         return self._text_color
 
     @text_color.setter
-    def text_color(self, value: str) -> None:
-        self._text_color = value
+    def text_color(self, value: Union[str, Tuple[int, int, int], Sequence[int]]) -> None:
         try:
-            self.widget.configure(fg=value) # pyright: ignore[reportCallIssue]
+            n = _normalize_color(value) or value
+        except Exception:
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: invalid color")
+            return
+        self._text_color = n
+        try:
+            self.widget.configure(fg=n) # pyright: ignore[reportCallIssue]
         except tk.TclError:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
 
@@ -441,8 +490,8 @@ class BPButton(_BPBase):
         self,
         widget: tk.Widget,
         text: str,
-        text_color: Optional[str] = None,
-        bg_color: Optional[str] = None,
+        text_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
+        bg_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
         tooltip: Optional[str] = None,
         anchor: Optional[str] = "center",
         on_click: BPCallbackType = None,
@@ -472,8 +521,8 @@ class BPLabel(_BPBase):
         self,
         widget: tk.Label,
         text: str,
-        text_color: Optional[str] = None,
-        bg_color: Optional[str] = None,
+        text_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
+        bg_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
         tooltip: Optional[str] = None,
         anchor: str = "center",
         on_click: BPCallbackType = None,
@@ -506,8 +555,8 @@ class BPTextBox(_BPBase):
         self,
         widget: tk.Text,
         text: str,
-        text_color: Optional[str] = None,
-        bg_color: Optional[str] = None,
+        text_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
+        bg_color: Optional[Union[str, Tuple[int, int, int], Sequence[int]]] = None,
         tooltip: Optional[str] = None,
         anchor: Optional[str] = None,
         on_click: BPCallbackType = None,
@@ -707,9 +756,9 @@ class ButtonPad:
         cell_height: Union[int, Sequence[int]] = 60,  # height of each grid cell in pixels; int for all cells or list of ints for per-row heights
         padx: int = 0,  # horizontal gap/padding between cells in pixels
         pady: int = 0,  # vertical gap/padding between cells in pixels
-        window_bg_color: str = '#f0f0f0',  # background color of the window
-        default_bg_color: str = '#f0f0f0',  # default background color for widgets
-        default_text_color: str = 'black',  # default text color for widgets
+        window_bg_color: Union[str, Tuple[int, int, int], Sequence[int]] = '#f0f0f0',  # background color of the window
+        default_bg_color: Union[str, Tuple[int, int, int], Sequence[int]] = '#f0f0f0',  # default background color for widgets
+        default_text_color: Union[str, Tuple[int, int, int], Sequence[int]] = 'black',  # default text color for widgets
         title: str = 'ButtonPad App',  # window title
         resizable: bool = True,  # whether the window is resizable
         border: int = 0,  # padding between the grid and the window edge
@@ -721,14 +770,28 @@ class ButtonPad:
         self._cell_height_input = cell_height
         self.padx = int(padx)
         self.pady = int(pady)
-        self.window_bg_color = window_bg_color
-        self.default_bg_color = default_bg_color
-        self.default_text_color = default_text_color
+        # Normalize allowed color formats (strings or RGB tuples). Use best-effort so invalid inputs don't crash.
+        try:
+            self.window_bg_color = _normalize_color(window_bg_color) or window_bg_color
+        except Exception:
+            self.window_bg_color = window_bg_color
+        try:
+            self.default_bg_color = _normalize_color(default_bg_color) or default_bg_color
+        except Exception:
+            self.default_bg_color = default_bg_color
+        try:
+            self.default_text_color = _normalize_color(default_text_color) or default_text_color
+        except Exception:
+            self.default_text_color = default_text_color
         self.border = int(border)
 
         self.root = tk.Tk()
         self.root.title(title)
-        self.root.configure(bg=self.window_bg_color)
+        # Apply normalized window bg if possible
+        try:
+            self.root.configure(bg=self.window_bg_color)
+        except Exception:
+            logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
         self.root.resizable(resizable, resizable)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         # Remember last root for post-dialog refocus
@@ -887,8 +950,11 @@ class ButtonPad:
         return self._status_bg_color
 
     @status_bar_bg_color.setter
-    def status_bar_bg_color(self, value: str) -> None:
-        self._status_bg_color = str(value)
+    def status_bar_bg_color(self, value: Union[str, Tuple[int, int, int], Sequence[int]]) -> None:
+        try:
+            self._status_bg_color = _normalize_color(value) or str(value)
+        except Exception:
+            self._status_bg_color = str(value)
         # Update live widgets if present
         if self._status_frame is not None:
             try:
@@ -907,8 +973,11 @@ class ButtonPad:
         return self._status_text_color
 
     @status_bar_text_color.setter
-    def status_bar_text_color(self, value: str) -> None:
-        self._status_text_color = str(value)
+    def status_bar_text_color(self, value: Union[str, Tuple[int, int, int], Sequence[int]]) -> None:
+        try:
+            self._status_text_color = _normalize_color(value) or str(value)
+        except Exception:
+            self._status_text_color = str(value)
         if self._status_label is not None:
             try:
                 self._status_label.configure(fg=self._status_text_color)
@@ -1168,8 +1237,8 @@ class ButtonPad:
                 widget.on_exit(widget, x, y)
         except Exception:
             logging.debug(f"Ignored exception in {__FUNC__()} at line {__LINE__()}, version {__version__}: {sys.exc_info()[1]}")
-
-    # ----- tooltip helpers (no idlelib) -----
+    # The remainder (_tooltip helpers, build_from_config, _place_widget, parser, etc.) remain unchanged.
+    # ...existing methods continue unchanged...
     def _tooltip_schedule(self, widget: BPWidgetType) -> None:
         text = getattr(widget, "_tooltip_text", None)
         if not text:
