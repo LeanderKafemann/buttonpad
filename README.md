@@ -126,6 +126,7 @@ bp[0, 0].font_size = 24  # Make the display text larger
 bp.run()  # run the app
 ```
 
+ButtonPad color values are strings of [tkinter color names](https://inventwithpython.com/blog/complete-list-tkinter-colors-valid-and-tested.html), in `'#ff00ff'` style of RGB value, or as a tuple of three RGB integers like `(255, 0, 0)`.
 
 ## Configuring the GUI with a Layout String
 
@@ -163,7 +164,11 @@ Widgets (buttons, text boxes, etc.) have the following attributes that you can c
 * `text` - The text label or text contents of the widget.
 * `tooltip` - The tooltip text that appears when the mouse cursor hovers over the widget.
 * `text_color` - The color of the text label or text contents.
-* `bg_color`
+* `bg_color` - The background color of the widget.
+* `font_name` - Set the font of the widget text.
+* `font_size` - Set the font size of the widget text.
+* `anchor` - Set the alignment of the widget text; same as tkinter values: `'n'` or `'s'` or `'center'`, etc.
+
 
 ## Extra Window Features: Resizeable Windows, Status Bar, and Menu Bar
 
