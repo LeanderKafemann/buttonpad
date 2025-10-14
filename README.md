@@ -157,7 +157,7 @@ Callback functions receive three arguments: the widget object that was clicked/e
 
 
 
-## Extra Widget Features: Tooltips, Custom Colors, Custom Fonts
+## Extra Widget Features: Tooltips, Custom Colors, Custom Fonts, Hotkeys
 
 Widgets (buttons, text boxes, etc.) have the following attributes that you can change:
 
@@ -168,7 +168,7 @@ Widgets (buttons, text boxes, etc.) have the following attributes that you can c
 * `font_name` - Set the font of the widget text.
 * `font_size` - Set the font size of the widget text.
 * `anchor` - Set the alignment of the widget text; same as tkinter values: `'n'` or `'s'` or `'center'`, etc.
-
+* `hotkey` - Set a string or tuple of strings to create independent hotkeys (case-insensitive).
 
 ## Extra Window Features: Resizeable Windows, Status Bar, and Menu Bar
 
@@ -220,27 +220,10 @@ Re-exported dialogs from pymsgbox:
 - `password(text: str = "", title: str = "PyMsgBox", default: str = "", mask: str = "*")` - Like `prompt()` but hides the typed characters.
 
 
-### Widgets
-
-All wrappers expose:
-- `text: str` — get/set the visible text.
-- `bg_color: str` — get/set background color.
-- `text_color: str` — get/set text/foreground color.
-- `font_name: str` and `font_size: int` — change font.
-- `tooltip: Optional[str]` — small hover tooltip; set to a string to enable, `None`/`""` to disable.
-- `on_click: Callable[[element, x, y], None] | None` — click handler.
-- `on_enter` / `on_exit` — hover handlers with the same signature.
-- `widget` — the underlying Tk widget, for advanced customization.
-Specific additions:
-- `BPButton.hotkey` / `BPLabel.hotkey` properties: assign a string (keysym) or tuple of strings to create independent hotkeys (case-insensitive). Reassigning replaces prior hotkeys.
-
-Specifics:
-- `BPButton` — click-focused element; created for unquoted tokens.
-- `BPLabel` — static text; has `anchor` property (e.g., `"w"`, `"center"`, `"e"`) and optional `hotkey` like buttons.
-- `BPTextBox` — editable single-line entry; `text` reflects its content.
+If [Pillow](https://pypi.org/project/pillow/) isn't installed, then the image widget is shown in its grid cell at its normal size. If Pillow is installed, then ButtonPad automatically resizes it to fit proportionately in its cell. (You can also have it stretch to always fill the cell by setting the image widget's `stretch` attribute to `True`.
 
 
-## Keyboard mapping
+## Keyboard Mapping
 
 Map keys to cells with `map_key`. Keys are Tk keysyms (case-insensitive): `"1"`, `"a"`, `"space"`, `"Return"`, `"Escape"`, etc.
 
@@ -250,17 +233,7 @@ pad.map_key("space", 1, 0)
 ```
 
 
-## Merging and no-merge cells
-
-Adjacent identical tokens automatically merge into a single widget, spanning a rectangular area. To opt out for a specific cell, prefix it with a backtick to mark it as “no-merge”:
-
-```
-Play,Play,Play  # this row is merged into a single button
-`Play,`Play,`Play   # this row is three separate buttons
-```
-
-
-## Platform notes
+## Platform Notes
 
 - macOS: For fully colorable buttons, install `tkmacosx`. When unavailable, ButtonPad falls back to the system `tk.Button` (colors may not update on some macOS builds). You’ll see a console message suggesting: `pip install tkmacosx`.
 - Dialog helpers use `pymsgbox` and are re-exported for convenience.
